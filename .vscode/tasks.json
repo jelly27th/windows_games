@@ -3,12 +3,14 @@
         {
             "type": "cppbuild",
             "label": "C/C++: g++.exe build active file",
-            "command": "C:\\Software\\mingw64\\bin\\g++.exe",
+            // "command": "C:\\Software\\mingw64\\bin\\g++.exe",
+            "command": "C:\\Storage\\Library\\mingw64\\bin\\g++.exe",
             "args": [
               "-fdiagnostics-color=always",
               "-g",
               "${file}",
               "-lgdi32",
+              "-lwinmm",
               "-o",
               "${fileDirname}\\${fileBasenameNoExtension}.exe"
             ],
