@@ -1,3 +1,4 @@
+/* standard version */
 #include <stdio.h>
 
 int main(void) {
