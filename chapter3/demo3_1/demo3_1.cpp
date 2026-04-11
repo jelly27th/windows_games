@@ -78,12 +78,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   winclass.cbClsExtra = 0;
   winclass.cbWndExtra = 0;
   winclass.hInstance = hinstance;
-  winclass.hIcon = LoadIconFromFileEx("t3dx.ico");
-  winclass.hCursor = LoadCursorFromFileEx("crosshair.cur");
+  winclass.hIcon = LoadIconFromFileEx("../t3dx.ico");
+  winclass.hCursor = LoadCursorFromFileEx("../crosshair.cur");
   winclass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
   winclass.lpszMenuName = NULL;
   winclass.lpszClassName = WINDOW_CLASS_NAME;
-  winclass.hIconSm = LoadIconFromFileEx("t3dx.ico");
+  winclass.hIconSm = LoadIconFromFileEx("../t3dx.ico");
 
   // register the window class
   if (!RegisterClassEx(&winclass)) {

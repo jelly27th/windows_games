@@ -1,6 +1,14 @@
-/* loading .wav resources */
+/* WM_SIZE demo */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
+
+#ifndef UNICODE
+#define UNICODE
+#endif
+
+#ifndef _UNICODE
+#define _UNICODE
+#endif
 
 #include <windows.h>
 #include <windowsx.h>
@@ -9,55 +17,50 @@
 #include <stdlib.h>
 #include <mmsystem.h>
 
-#define _UNICODE
-
-HICON LoadIconFromFileEx(LPCTSTR filename) {
-  HICON hIcon = (HICON)LoadImage(NULL, filename, IMAGE_ICON, 0, 0,
-                                 LR_LOADFROMFILE | LR_DEFAULTSIZE);
-
-  if (!hIcon) {
-    hIcon = LoadIcon(NULL, IDI_APPLICATION);
-  }
-
-  return hIcon;
-}
-
-HCURSOR LoadCursorFromFileEx(LPCTSTR filename) {
-  HCURSOR hCursor = (HCURSOR)LoadImage(NULL, filename, IMAGE_CURSOR, 0, 0,
-                                       LR_LOADFROMFILE | LR_DEFAULTSIZE);
-
-  if (!hCursor) {
-    hCursor = LoadCursor(NULL, IDC_ARROW);
-  }
-
-  return hCursor;
-}
-
-#define WINDOW_CLASS_NAME "WINCLASS1"
+#define WINDOW_CLASS_NAME L"WINCLASS1"
 
 /* global variables */
 HWND main_window_handle = NULL;
 HINSTANCE hinstance_app = NULL;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+  
   PAINTSTRUCT ps;
   HDC hdc;
+  char buffer[80]; // used to print strings
+
   switch (msg) {
     case WM_CREATE: {
       // do initialization stuff here
 
-      // play the create sound once
-      PlaySound("../create.wav", hinstance_app, SND_FILENAME | SND_ASYNC);
-      // play the music in loop mode
-      PlaySound("../techno.wav", hinstance_app, SND_FILENAME | SND_ASYNC | SND_LOOP);
-
       return 0;
+    } break;
+
+    case WM_SIZE: {
+      // extract the width and height from lparam
+      int width = LOWORD(lparam);
+      int height = HIWORD(lparam);
+
+      // get a graphics context
+      hdc = GetDC(hwnd);
+            
+      SetTextColor(hdc, RGB(0,255,0));
+      SetBkColor(hdc, RGB(0,0,0));
+      SetBkMode(hdc, OPAQUE);
+
+      // draw the size of the window
+      sprintf(buffer, "WM_SIZE Called - New Size = (%d, %d)  ", width, height);
+      TextOutA(hdc, 0,0, buffer, strlen(buffer));
+
+      ReleaseDC(hwnd, hdc);
+
     } break;
 
     case WM_PAINT: {
       // simple validate the window
       hdc = BeginPaint(hwnd, &ps);
       // you would do your painting here
+
       EndPaint(hwnd, &ps);
       return 0;
     } break;
@@ -89,12 +92,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   winclass.cbClsExtra = 0;
   winclass.cbWndExtra = 0;
   winclass.hInstance = hinstance;
-  winclass.hIcon = LoadIconFromFileEx("../t3dx.ico");
-  winclass.hCursor = LoadCursorFromFileEx("../crosshair.cur");
+  winclass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+  winclass.hCursor = LoadCursor(NULL, IDC_ARROW);
   winclass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
   winclass.lpszMenuName = NULL;
   winclass.lpszClassName = WINDOW_CLASS_NAME;
-  winclass.hIconSm = LoadIconFromFileEx("../t3dx.ico");
+  winclass.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
 
   // register the window class
   if (!RegisterClassEx(&winclass)) {
@@ -102,12 +105,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   }
 
   // create the window
-  if (!(hwnd = CreateWindowEx(NULL,                 // extended style
+  if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              "demo of custom curson and icon",  // title
+                              L"Demo3_9",  // title
                               WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                               0,0,          // initial x, y
-                              400, 400,   // inital width, height
+                              640, 480,   // inital width, height
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
@@ -132,6 +135,9 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
       // send the message to the window proc
       DispatchMessage(&msg);
     }
+
+    /* main game processing goes here */
+
   }
 
   return msg.wParam;
