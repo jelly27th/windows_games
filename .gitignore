@@ -1,2 +1,3 @@
 chapter*/*.exe
 chapter*/demo*/*.exe
+.vscode/*.VC.DB*
