@@ -1,4 +1,4 @@
-/* Starfield demo based on T3D console */
+/* T3D Game Console, creates a game console application */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
 
@@ -31,35 +31,15 @@
 #define WINDOW_WIDTH 400
 #define WINDOW_HEIGHT 300
 
-/* starfield macro */
-#define NUM_STARS 256
-
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
-
-/* type */
-typedef struct STAR_TYPE {
-    int x, y; // position of star
-    int vel; // horizontal velocity of star
-    COLORREF color; // color of star
-} STAR, *STAR_PTR;
-
-/* function prototypes */
-void Erase_Stars(void);
-void Draw_Stars(void);
-void Move_Stars(void);
-void Init_Stars(void);
 
 /* global variables */
 HWND main_window_handle = NULL; // global track main window
 HINSTANCE hinstance_app = NULL; // global track hinstance
 
-HDC global_dc = NULL; // track a global dc
-
 char buffer[80]; // general printing buffer
-
-STAR star[NUM_STARS]; // holds the starfield
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   
@@ -97,66 +77,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-/* initialize all the stars */
-void Init_Stars(void) {
-    for (int index = 0; index < NUM_STARS; index++) {
-        // select random position
-        star[index].x = rand() % WINDOW_WIDTH;
-        star[index].y = rand() % WINDOW_HEIGHT;
-        // select random velocity
-        star[index].vel = 1 + rand() % 16;
-        
-        // set intensity which is inversely prop to velocity for 3D effect
-        // note, i am mixing equal amounts of RGB to make black -> bright white
-        int intensity = 15 *(17 - star[index].vel);
-        star[index].color = RGB(intensity, intensity, intensity);
-    }
-}
-
-/* erase all stars */
-void Erase_Stars(void) {
-    for (int index = 0; index < NUM_STARS; index++) {
-        SetPixel(global_dc, star[index].x, star[index].y, RGB(0, 0, 0));
-    }
-}
-
-/* draw all stars */
-void Draw_Stars(void) {
-    for (int index = 0; index < NUM_STARS; index++) {
-        SetPixel(global_dc, star[index].x, star[index].y, star[index].color);
-    }
-}
-
-/* move all stars and wrap them around the screen boundaries */
-void Move_Stars(void) {
-    for (int index = 0; index < NUM_STARS; index++) {
-        // move the star and test for edge
-        star[index].x += star[index].vel;
-        if (star[index].x >= WINDOW_WIDTH) {
-            star[index].x -= WINDOW_WIDTH;
-        }
-    }
-}
-
-/* main game loop  do all your processing here */
+/* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
 
-    // get the time
-    DWORD start_time = GetTickCount();
-
-    // erase the stars
-    Erase_Stars();
-
-    // move the stars
-    Move_Stars();
-
-    // draw the stars
-    Draw_Stars();
-
-    // lock time to 30 fps which is approx. 33 milliseconds per frame
-    while (GetTickCount() - start_time < 33) {
-        // do nothing, just wait
-    }
+    /* do all your processing here */
 
     // for now test if the user is hitting ESC and send WM_CLOSE
     if (KEYDOWN(VK_ESCAPE)) {
@@ -169,26 +93,22 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
 
 /*  
     this is call once after the initial window is created  and
-    before the main game loop is entered, you can do any initialization
-    here 
+    before the main game loop is entered
 */
 int Game_Init(void* parms = NULL, int num_parms = 0) {
-    // get the device context and save in global
-    global_dc = GetDC(main_window_handle);
 
-    // initialize the starfield
-    Init_Stars();
+    /* do your initialization here */
 
     return 1;
 }
 
 /* 
     this is called after the game is exited and the main event loop 
-    while is exited, do all your cleanup here and shutdown here
+    while is exited
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
-    // release the device context
-    ReleaseDC(main_window_handle, global_dc);
+  
+    /* do all your cleanup here and shutdown here*/
 
     return 1;
 }
