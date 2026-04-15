@@ -12,6 +12,8 @@
               "-lgdi32",
               "-lwinmm",
               "-luuid",
+              "-lddraw",
+              "-ldxguid",
               "-o",
               "${fileDirname}\\${fileBasenameNoExtension}.exe"
             ],
