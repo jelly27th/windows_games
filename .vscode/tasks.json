@@ -11,6 +11,7 @@
               "${file}",
               "-lgdi32",
               "-lwinmm",
+              "-luuid",
               "-o",
               "${fileDirname}\\${fileBasenameNoExtension}.exe"
             ],
