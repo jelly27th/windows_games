@@ -1,4 +1,8 @@
-/* basic full-screen pixel plotting directdraw demo */
+/* 
+  basic full-screen pixel plotting directdraw demo with 32 bit per pixel, 
+  because win11 not suport 8it pixel full-screen plotting directdraw, so
+  not use palette.
+*/
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
 
@@ -33,8 +37,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 8 // bits per pixel
-#define MAX_COLORS 256 
+#define SCREEN_BPP 32 // bits per pixel
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -57,10 +60,7 @@ HINSTANCE hinstance_app = NULL; // global track hinstance
 LPDIRECTDRAW7 lpdd = NULL; // the directdraw object
 LPDIRECTDRAWSURFACE7 lpddsprimary = NULL; // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL; // the directdraw back surface
-LPDIRECTDRAWPALETTE lpddpal = NULL; // a pointer to the created old palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL; // the directdraw clipper
-PALETTEENTRY palette[256]; // the color palette
-PALETTEENTRY save_palette[256]; // used to save palette
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
@@ -119,8 +119,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
 
-    /* do all your processing here */
-
     // for now test if the user is hitting ESC and send WM_CLOSE
     if (KEYDOWN(VK_ESCAPE)) {
       SendMessage(main_window_handle, WM_CLOSE, 0, 0);
@@ -143,13 +141,19 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
     // plot 1000 random pixels with random colors on the
     // primary surface, they will be instantly visible
     for (int index = 0; index < 1000; index++) {
-      // select random position and color for 640 * 480 * 8
-      UCHAR color = rand()%256;
-      int x = rand()%640;
-      int y = rand()%480;
-
-      // plot the pixel
-      video_buffer[x+y*mempitch] = color;
+        int x = rand() % SCREEN_WIDTH;
+        int y = rand() % SCREEN_HEIGHT;
+        
+        // 32 bit = 4 byte / pixel
+        int pixel_offset = y * mempitch + x * 4;
+        
+        if (pixel_offset + 3 < SCREEN_HEIGHT * mempitch) {
+            // BGRA（Windows default）
+            video_buffer[pixel_offset] = rand() % 256;     // Blue
+            video_buffer[pixel_offset + 1] = rand() % 256; // Green
+            video_buffer[pixel_offset + 2] = rand() % 256; // Red
+            video_buffer[pixel_offset + 3] = 255;          // Alpha
+        }
     }
 
     // now unlock the primary surface
@@ -170,25 +174,22 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
 */
 int Game_Init(void* parms = NULL, int num_parms = 0) {
 
-    /* do your initialization here */
-
     // create IDirectDraw instance 7.0 object and test for error
     if (FAILED(DirectDrawCreateEx(NULL, (void**)&lpdd, IID_IDirectDraw7, NULL))) {
+        PostQuitMessage(0);
         return 0;
     }
 
     // set cooperation to full screen 
-    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_NORMAL))) {
-    // if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_FULLSCREEN | DDSCL_ALLOWMODEX |
-    //                                               DDSCL_EXCLUSIVE | DDSCL_ALLOWREBOOT))) {
+    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_FULLSCREEN | DDSCL_EXCLUSIVE | DDSCL_ALLOWREBOOT))) {
+        PostQuitMessage(0);
         return 0;
     }
 
-    // set display mode to 640x480x8
-    // if (FAILED(lpdd->SetDisplayMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, 0, 0))) {
-    //   return 0;
-    // }
-
+    if (FAILED(lpdd->SetDisplayMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, 0, 0))) {
+      PostQuitMessage(0);
+      return 0;
+    }
     // clear ddsd and set size
     DD_INIT_STRUCT(ddsd);
 
@@ -200,38 +201,10 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
 
     // create the primary surface
     if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL))) {
+      PostQuitMessage(0);
       return 0;
     }
-
-    // build up the palette data array
-    for (int color=1; color<255; color++) {
-      palette[color].peRed = rand()%256;
-      palette[color].peGreen = rand()%256;
-      palette[color].peBlue = rand()%256;
-      palette[color].peFlags = PC_NOCOLLAPSE;
-    }
-
-    // now fill in entry 0 and 255 with black and white
-    palette[0].peRed = 0;
-    palette[0].peGreen = 0;
-    palette[0].peBlue = 0;
-    palette[0].peFlags = PC_NOCOLLAPSE;
-
-    palette[255].peRed = 255;
-    palette[255].peGreen = 255;
-    palette[255].peBlue = 255;
-    palette[255].peFlags = PC_NOCOLLAPSE;
-
-    // create the palette object
-    if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT|DDPCAPS_ALLOW256|DDPCAPS_INITIALIZE, 
-                                   palette, &lpddpal, NULL))) {
-      return 0;
-    }
-
-    // finally attach the palette to the primary surface
-    if (FAILED(lpddsprimary->SetPalette(lpddpal))) {
-      return 0;
-    }    
+    
     return 1;
 }
 
@@ -240,14 +213,6 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     while is exited
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
-  
-    /* do all your cleanup here and shutdown here*/
-
-    // first the palette
-    if (lpddpal) {
-      lpddpal->Release();
-      lpddpal = NULL;
-    }
 
     // now the primary surface
     if (lpddsprimary) {
@@ -298,9 +263,10 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
                               L"Demo6_3",  // title
-                              WS_OVERLAPPEDWINDOW | WS_VISIBLE, //WS_POPUP
+                              WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT,   // initial width, height
+                              GetSystemMetrics(SM_CXSCREEN), // initial width, height
+                              GetSystemMetrics(SM_CYSCREEN),   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application

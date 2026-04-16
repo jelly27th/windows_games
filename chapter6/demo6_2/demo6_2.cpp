@@ -18,7 +18,6 @@
 #include <iostream>
 #include <conio.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <malloc.h>
 #include <memory.h>
 #include <string.h>
@@ -152,6 +151,8 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
 
     // set display mode to 640x480x8
     if (FAILED(lpdd->SetDisplayMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, 0, 0))) {
+        PostQuitMessage(0);
+        lpdd->SetCooperativeLevel(main_window_handle, DDSCL_NORMAL);
         return 0;
     }
 
