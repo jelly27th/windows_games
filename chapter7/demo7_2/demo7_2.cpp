@@ -1,7 +1,5 @@
 /* 
-  basic full-screen 16-bit color pixel plotting DirectDraw demo
-  Note: i'm not test, because win11 not suport 16it pixel full-screen
-  plotting directdraw
+  basic full-screen 24-bit color pixel plotting DirectDraw demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -37,7 +35,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 16 // bits per pixel
+#define SCREEN_BPP 24 // bits per pixel
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -48,12 +46,6 @@ typedef unsigned char BYTE;
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
-
-/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
-#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
-
-/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
-#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
 
 /* initialize a direct draw structure */
 #define DD_INIT_STRUCT(ddstruct) { memset(&ddstruct, 0, sizeof(ddstruct)); ddstruct.dwSize = sizeof(ddstruct); }
@@ -112,18 +104,24 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 }
 
 /*
-  this function plots a pixel in 16-bit color mode,
+  this function plots a pixel in 24-bit color mode,
   assuming that the caller already locked the surface
   and is sending a pointer and byte pitch to it
 */
-inline void Plot_Pixel_Faster16(int x, int y,
-                                int red, int green, int blue,
-                                USHORT* video_buffer, int lpitch16) {
-    // first build up color WORD
-    USHORT pixel = _RGB16BIT565(red, green, blue);
+inline void Plot_Pixel_24(int x, int y, 
+                          int red, int green, int blue, 
+                          UCHAR *video_buffer, int lpitch){
 
-    // write the data
-    video_buffer[x + y * lpitch16] = pixel;
+  // in byte or 8-bit math the proper address is: 3*x + y*lpitch
+  // this is the address of the low order byte which is the Blue channel
+  // since the data is in RGB order
+  DWORD pixel_addr = (x+x+x) + y*lpitch;
+
+  // write the data
+  video_buffer[pixel_addr]   = blue;
+  video_buffer[pixel_addr+1] = green;
+  video_buffer[pixel_addr+2] = red;
+
 }
 
 /* main game loop */
@@ -145,8 +143,8 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
     // now ddsd.lPitch is valid and so is ddsd.lpSurface
 
     // make a couple aliases to make code cleaner, so we don't have to cast
-    int lpitch16 = (int)ddsd.lPitch;
-    USHORT* video_buffer = (USHORT*)ddsd.lpSurface;
+    int lpitch = (int)ddsd.lPitch;
+    UCHAR* video_buffer = (UCHAR*)ddsd.lpSurface;
 
     // plot 1000 random pixels with random colors on the
     // primary surface, they will be instantly visible
@@ -160,7 +158,7 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
         int blue = rand() % 256;
 
         // plot the pixel
-        Plot_Pixel_Faster16(x, y, red, green, blue, video_buffer, lpitch16);
+        Plot_Pixel_24(x, y, red, green, blue, video_buffer, lpitch);
     }
 
     // now unlock the primary surface
