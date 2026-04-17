@@ -1,7 +1,7 @@
 /* 
-  basic full-screen pixel plotting directdraw demo with 32 bit per pixel, 
-  because win11 not suport 8it pixel full-screen plotting directdraw, so
-  not use palette.
+  basic full-screen 16-bit color pixel plotting DirectDraw demo
+  Note: i'm not test, because win11 not suport 16it pixel full-screen
+  plotting directdraw
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -37,7 +37,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 32 // bits per pixel
+#define SCREEN_BPP 16 // bits per pixel
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -48,6 +48,12 @@ typedef unsigned char BYTE;
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
+
+/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
+#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
+
+/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
+#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
 
 /* initialize a direct draw structure */
 #define DD_INIT_STRUCT(ddstruct) { memset(&ddstruct, 0, sizeof(ddstruct)); ddstruct.dwSize = sizeof(ddstruct); }
@@ -105,6 +111,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
+/*
+  this function plots a pixel in 16-bit color mode,
+  assuming that the caller already locked the surface
+  and is sending a pointer and byte pitch to it
+*/
+inline void Plot_Pixel_Faster16(int x, int y,
+                                int red, int green, int blue,
+                                USHORT* video_buffer, int lpitch16) {
+    // first build up color WORD
+    USHORT pixel = _RGB16BIT565(red, green, blue);
+
+    // write the data
+    video_buffer[x + y * lpitch16] = pixel;
+}
+
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
 
@@ -124,34 +145,28 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
     // now ddsd.lPitch is valid and so is ddsd.lpSurface
 
     // make a couple aliases to make code cleaner, so we don't have to cast
-    int mempitch = (int)ddsd.lPitch;
-    UCHAR* video_buffer = (UCHAR*)ddsd.lpSurface;
+    int lpitch16 = (int)ddsd.lPitch;
+    USHORT* video_buffer = (USHORT*)ddsd.lpSurface;
 
     // plot 1000 random pixels with random colors on the
     // primary surface, they will be instantly visible
     for (int index = 0; index < 1000; index++) {
+        
+        // select random position and color for 640 * 480 * 16
         int x = rand() % SCREEN_WIDTH;
         int y = rand() % SCREEN_HEIGHT;
-        
-        // 32 bit = 4 byte / pixel
-        int pixel_offset = y * mempitch + x * 4;
-        
-        if (pixel_offset + 3 < SCREEN_HEIGHT * mempitch) {
-            // BGRA（Windows default）
-            video_buffer[pixel_offset] = rand() % 256;     // Blue
-            video_buffer[pixel_offset + 1] = rand() % 256; // Green
-            video_buffer[pixel_offset + 2] = rand() % 256; // Red
-            video_buffer[pixel_offset + 3] = 255;          // Alpha
-        }
+        int red = rand() % 256;
+        int green = rand() % 256;
+        int blue = rand() % 256;
+
+        // plot the pixel
+        Plot_Pixel_Faster16(x, y, red, green, blue, video_buffer, lpitch16);
     }
 
     // now unlock the primary surface
     if (FAILED(lpddsprimary->Unlock(NULL))) {
       return 0;
     }
-
-    //sleep a bit
-    Sleep(30);
 
     // return success or failure or your own return code here
     return 1;
@@ -251,7 +266,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo6_3",  // title
+                              L"Demo7_1",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
                               GetSystemMetrics(SM_CXSCREEN), // initial width, height
