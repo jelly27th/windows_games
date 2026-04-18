@@ -1,5 +1,5 @@
 /* 
-  basic full-screen 32-bit color pixel plotting DirectDraw demo
+  8-bit page flipping demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -35,7 +35,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 32 // bits per pixel
+#define SCREEN_BPP 8 // bits per pixel
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -47,21 +47,22 @@ typedef unsigned char BYTE;
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
 
-// this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
-#define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
-
 /* initialize a direct draw structure */
 #define DDRAW_INIT_STRUCT(ddstruct) { memset(&ddstruct, 0, sizeof(ddstruct)); ddstruct.dwSize = sizeof(ddstruct); }
 
 /* global variables */
 HWND main_window_handle = NULL; // global track main window
 HINSTANCE hinstance_app = NULL; // global track hinstance
+int window_closed = 0; // track if window is closed
 
 /* directdraw stuff*/
 LPDIRECTDRAW7 lpdd = NULL; // the directdraw object
 LPDIRECTDRAWSURFACE7 lpddsprimary = NULL; // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL; // the directdraw back surface
+LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL; // the directdraw clipper
+PALETTEENTRY          palette[256];          // color palette
+PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
@@ -106,64 +107,70 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-/*
-  this function plots a pixel in 32-bit color mode,
-  assuming that the caller already locked the surface
-  and is sending a pointer and byte pitch to it
-*/
-inline void Plot_Pixel_32(int x, int y, 
-                          int alpha, int red, int green, int blue, 
-                          UINT *video_buffer, int lpitch32){
-
-  // first build up color WORD
-  UINT pixel = _RGB32BIT(alpha, red, green, blue);
-
-  // write the data
-  video_buffer[x + y*lpitch32] = pixel;
-
-}
-
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
+
+   // make sure this isn't executed again
+   if (window_closed) return 0;
 
     // for now test if the user is hitting ESC and send WM_CLOSE
     if (KEYDOWN(VK_ESCAPE)) {
       SendMessage(main_window_handle, WM_CLOSE, 0, 0);
+      window_closed = 1;
     }
 
-    // plot 1000 random pixels to the primary surface and return
-    // clear ddsd and set size, never assume it's clea
+    /* copy the double buffer into the primary buffer */
     DDRAW_INIT_STRUCT(ddsd);
 
+    // lock the primary buffer
     if (FAILED(lpddsprimary->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL))) {
         return 0;
     }
 
-    // now ddsd.lPitch is valid and so is ddsd.lpSurface
+    // alias pointer to back buffer surface
+    UCHAR* back_buffer = (UCHAR*)ddsd.lpSurface;
 
-    // make a couple aliases to make code cleaner, so we don't have to cast
-    int lpitch32 = (int)(ddsd.lPitch >> 2);
-    UINT* video_buffer = (UINT*)ddsd.lpSurface;
+    // teset if memory is linear
+    if (SCREEN_WIDTH == ddsd.lPitch)
+    {
+      // copy memory from double buffer to primary buffer
+      memset(back_buffer, 0, SCREEN_WIDTH*SCREEN_HEIGHT);
+    }
+    else // no linear
+    {
+      // make copy of vedio pointer
+      UCHAR* dest_ptr = back_buffer;
 
-    // plot 1000 random pixels with random colors on the
-    // primary surface, they will be instantly visible
-    for (int index = 0; index < 1000; index++) {
+      // clear out memory one line at a time
+      for (int y = 0; y < SCREEN_HEIGHT; y++) {
+        memset(dest_ptr, 0, SCREEN_WIDTH);// clear line
         
-        // select random position and color for 640 * 480 * 16
-        int x = rand() % SCREEN_WIDTH;
-        int y = rand() % SCREEN_HEIGHT;
-        int red = rand() % 256;
-        int green = rand() % 256;
-        int blue = rand() % 256;
+        // advance pointers to next line
+        dest_ptr += ddsd.lPitch;
 
-        // plot the pixel
-        Plot_Pixel_32(x, y, 0, red, green, blue, video_buffer, lpitch32);
+      }
     }
 
-    // now unlock the primary surface
-    if (FAILED(lpddsprimary->Unlock(NULL))) {
+    // draw the next frame into the back buffer, notice that we
+    // must use the lpitch since it's a surface and may not be linear
+
+    // plot 5000 random pixels
+    for (int index=0; index < 5000; index++) {
+        int   x   = rand()%SCREEN_WIDTH;
+        int   y   = rand()%SCREEN_HEIGHT;
+        UCHAR col = rand()%256;
+        back_buffer[x+y*ddsd.lPitch] = col;
+    }
+
+    // unlock the back buffer
+    if (FAILED(lpddsback->Unlock(NULL))) {
       return 0;
     }
+
+    // perform the flip
+    while (FAILED(lpddsprimary->Flip(NULL, DDFLIP_WAIT)));
+
+    Sleep(500); // 500 sec
 
     // return success or failure or your own return code here
     return 1;
@@ -182,7 +189,8 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     }
 
     // set cooperation to full screen 
-    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_FULLSCREEN | DDSCL_EXCLUSIVE | DDSCL_ALLOWREBOOT))) {
+    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_FULLSCREEN | DDSCL_EXCLUSIVE | 
+	                                                         DDSCL_ALLOWMODEX | DDSCL_ALLOWREBOOT))) {
         PostQuitMessage(0);
         return 0;
     }
@@ -191,14 +199,18 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
       PostQuitMessage(0);
       return 0;
     }
+
     // clear ddsd and set size
     DDRAW_INIT_STRUCT(ddsd);
 
     // enable valid fields
-    ddsd.dwFlags =  DDSD_CAPS;
+    ddsd.dwFlags =  DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 
-    // request primary surface
-    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE;
+    // set the backbuffer count field to 1, use 2 for triple buffering
+    ddsd.dwBackBufferCount = 1;
+
+    // request a complex, flipable
+    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 
     // create the primary surface
     if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL))) {
@@ -206,6 +218,48 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
       return 0;
     }
     
+    // now query for attached surface from the primary surface
+
+    // this line is needed by the call
+    ddsd.ddsCaps.dwCaps = DDSCAPS_BACKBUFFER;
+
+    // get the attached back buffer surface
+    if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback))) {
+      return 0;
+    }
+
+    // build up the palette data array
+    for (int color=1; color < 255; color++) {
+        // fill with random RGB values
+        palette[color].peRed   = rand()%256;
+        palette[color].peGreen = rand()%256;
+        palette[color].peBlue  = rand()%256;
+
+        // set flags field to PC_NOCOLLAPSE
+        palette[color].peFlags = PC_NOCOLLAPSE;
+    }
+
+    // now fill in entry 0 and 255 with black and white
+    palette[0].peRed     = 0;
+    palette[0].peGreen   = 0;
+    palette[0].peBlue    = 0;
+    palette[0].peFlags   = PC_NOCOLLAPSE;
+
+    palette[255].peRed   = 255;
+    palette[255].peGreen = 255;
+    palette[255].peBlue  = 255;
+    palette[255].peFlags = PC_NOCOLLAPSE;
+
+    // create the palette object
+    if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256 | 
+                                    DDPCAPS_INITIALIZE, 
+                                    palette,&lpddpal, NULL)))
+    return(0);
+
+    // finally attach the palette to the primary surface
+    if (FAILED(lpddsprimary->SetPalette(lpddpal)))
+      return(0);
+
     return 1;
 }
 
@@ -215,6 +269,20 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
 
+    // first the palette
+    if (lpddpal)
+    {
+      lpddpal->Release();
+      lpddpal = NULL;
+    }
+
+    // now the back buffer surface
+    if (lpddsback)
+    {
+      lpddsback->Release();
+      lpddsback = NULL;
+    }
+    
     // now the primary surface
     if (lpddsprimary) {
       lpddsprimary->Release();
@@ -263,11 +331,10 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_3",  // title
+                              L"Demo7_5",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              GetSystemMetrics(SM_CXSCREEN), // initial width, height
-                              GetSystemMetrics(SM_CYSCREEN),   
+                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
