@@ -1,5 +1,5 @@
 /* 
-  16-bit blitter filling demo
+  16-bit surface to surface blitter demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -119,7 +119,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
 
-   DDBLTFX ddbltfx; // teh bitter fx structer
+   RECT source_rect; // used to hold the destination RECT
    RECT dest_rect; // used to hold the destination RECT
 
    // make sure this isn't executed again
@@ -131,36 +131,35 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
-    /* copy the double buffer into the primary buffer */
-    DDRAW_INIT_STRUCT(ddbltfx);
-
-    // now set the color word info to the color we desire
-    // in this case, we are assuming an 8-bit mode, hence,
-    // well use a color index from 0-255, but if this was a 
-    // 16/24/32 bit example then we would fill the WORD with
-    // the RGB encoding for the pixel - remember!
-    ddbltfx.dwFillColor = _RGB16BIT565(rand()%256,rand()%256,rand()%256);
-
-    // get a random rectangle
+    // get a random rectangle for source
     int x1 = rand()%SCREEN_WIDTH;
     int y1 = rand()%SCREEN_HEIGHT;
     int x2 = rand()%SCREEN_WIDTH;
     int y2 = rand()%SCREEN_HEIGHT;
 
+	// get a random rectangle for destination
+    int x3 = rand()%SCREEN_WIDTH;
+    int y3 = rand()%SCREEN_HEIGHT;
+    int x4 = rand()%SCREEN_WIDTH;
+    int y4 = rand()%SCREEN_HEIGHT;
     // now set up the RECT structure to fill the region from
-    // (x1,y1) to (x2,y2) on the destination surface
-    dest_rect.left = x1;
-    dest_rect.top = y1;
-    dest_rect.right = x2;
-    dest_rect.bottom = y2;
+    // (x1,y1) to (x2,y2) on the source surface
+    source_rect.left = x1;
+    source_rect.top = y1;
+    source_rect.right = x2;
+    source_rect.bottom = y2;
+    // (x3,y3) to (x4,y4) on the destination surface
+    dest_rect.left = x3;
+    dest_rect.top = y3;
+    dest_rect.right = x4;
+    dest_rect.bottom = y4;
 
     // make the blitter call
     if (FAILED(lpddsprimary->Blt(&dest_rect, // pointer to the dest RECT
-                                  NULL, // pointer to source surface
-                                  NULL, // pointer to source RECT
-                                  DDBLT_COLORFILL|DDBLT_WAIT,
-                                  // do a color fill and wait if you have to
-                                  &ddbltfx // pointer to DDBLTFX holding info
+                                  lpddsback, // pointer to source surface
+                                  &source_rect, // pointer to source RECT
+                                  DDBLT_WAIT, // control flags
+                                  NULL // pointer to DDBLTFX holding info
                                   ))) {
         return 0;
     }
@@ -195,15 +194,78 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     DDRAW_INIT_STRUCT(ddsd);
 
     // enable valid fields
-    ddsd.dwFlags =  DDSD_CAPS;
+    ddsd.dwFlags =  DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 
+    // set the backbuffer count field to 1, use 2 for triple buffering
+	ddsd.dwBackBufferCount = 1;
     // request a complex, flipable
-    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE;
+    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 
     // create the primary surface
     if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL))) {
       return 0;
     }
+   // now query for attached surface from the primary surface
+   
+   // this line is need by the call
+   ddsd.ddsCaps.dwCaps = DDSCAPS_BACKBUFFER;
+   
+   // get the attached back buffer surface
+   if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback))) {
+   	 return 0;
+   }
+   
+   // draw a green gradient in back buffer
+   DDRAW_INIT_STRUCT(ddsd);
+   
+   // lock the back buffer
+   if (FAILED(lpddsback->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL))) {
+    return 0;
+   }
+	
+   // get alias to start of surface memory for fast addressing
+   USHORT* video_buffer = (USHORT*)ddsd.lpSurface;
+   
+   // draw the gradient
+   for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++) {
+      // build color word up
+      DWORD color = _RGB16BIT565(0, (index_y >> 3), 0);
+
+      // replicate color in upper and lower 16 bits of 32-bits word
+      color = (color) | (color << 16);
+
+      // now color has two pixel in it in 16.16 or RGB.RGB format, use
+      // a DWORD or 32-bit copy to move the bytes into the next video
+      // line, we'll need inline assembly though...
+
+      // draw next line, use a little inline asm baby!
+      #ifdef _MSC_VER
+        // Visual Studio
+        __asm {
+            CLD                       ; clear direction of copy to forward  
+            MOV EAX, color            ; color goes here 
+            MOV ECX, (SCREEN_WIDTH/2) ; number of DWORDS goes here 
+            MOV EDI, video_buffer     ; address of line to move data
+            REP STOSD                 ; send the pentium X on its way
+        }
+      #elif defined(__GNUC__) && defined(__i386__)
+       // GCC x86
+        asm volatile (
+            "cld\n\t"
+            "rep stosl"
+            : 
+            : "a"(color), "c"((SCREEN_WIDTH/2)), "D"(video_buffer)
+            : "memory", "cc"
+        );
+      #endif
+
+      // now advance video buffer to next line
+      video_buffer += (ddsd.lPitch >> 1);
+   }
+
+   if (FAILED(lpddsback->Unlock(NULL))) {
+    return 0;
+   }
     
     return 1;
 }
@@ -214,6 +276,13 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
     
+    // now the back buffer surface
+    if (lpddsback)
+    {
+    lpddsback->Release();
+    lpddsback = NULL;
+    } 
+
     // now the primary surface
     if (lpddsprimary) {
       lpddsprimary->Release();
@@ -263,7 +332,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_6",  // title
+                              L"Demo7_7",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
                               SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
