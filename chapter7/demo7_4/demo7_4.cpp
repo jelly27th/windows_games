@@ -1,5 +1,5 @@
 /* 
-  8-bit double buffering demo
+  32-bit double buffering demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -35,7 +35,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 8 // bits per pixel
+#define SCREEN_BPP 32 // bits per pixel
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -61,8 +61,6 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL; // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL; // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL; // the directdraw clipper
-PALETTEENTRY          palette[256];          // color palette
-PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
@@ -123,7 +121,7 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
-    memset((void*)double_buffer, 0, SCREEN_WIDTH*SCREEN_HEIGHT);
+    memset((void*)double_buffer, 0, SCREEN_WIDTH*SCREEN_HEIGHT*4);
 
     // draw the next frame into the double buffer
     // plot 5000 random pixels
@@ -131,8 +129,13 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
         
         int x = rand() % SCREEN_WIDTH;
         int y = rand() % SCREEN_HEIGHT;
-        UCHAR color = rand() % 256;
-        double_buffer[x + y*SCREEN_WIDTH] = color;
+		// 32 bit = 4 byte / pixel
+        int pixel_offset = y * SCREEN_WIDTH * 4 + x * 4;
+        double_buffer[pixel_offset] = rand() % 256; // Blue
+        double_buffer[pixel_offset + 1] = rand() % 256; // Green
+        double_buffer[pixel_offset + 2] = rand() % 256; // Red
+        double_buffer[pixel_offset+ 3] = 255; // Alpha
+
     }
 
     /* copy the double buffer into the primary buffer */
@@ -160,12 +163,11 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
 
       // memory is non-linear, copy line by line
       for (int y = 0; y < SCREEN_HEIGHT; y++) {
-        memcpy((void*)dest_ptr, (void*)src_ptr, SCREEN_WIDTH);// copy line
+        memcpy((void*)dest_ptr, (void*)src_ptr, SCREEN_WIDTH*4);// copy line
         
         // advance pointers to next line
         dest_ptr += ddsd.lPitch;
-        src_ptr += SCREEN_WIDTH;
-
+        src_ptr += SCREEN_WIDTH*4;
 
       }
     }
@@ -219,41 +221,9 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
       PostQuitMessage(0);
       return 0;
     }
-    
-    // build up the palette data array
-    for (int color=1; color < 255; color++) {
-        // fill with random RGB values
-        palette[color].peRed   = rand()%256;
-        palette[color].peGreen = rand()%256;
-        palette[color].peBlue  = rand()%256;
-
-        // set flags field to PC_NOCOLLAPSE
-        palette[color].peFlags = PC_NOCOLLAPSE;
-    }
-
-    // now fill in entry 0 and 255 with black and white
-    palette[0].peRed     = 0;
-    palette[0].peGreen   = 0;
-    palette[0].peBlue    = 0;
-    palette[0].peFlags   = PC_NOCOLLAPSE;
-
-    palette[255].peRed   = 255;
-    palette[255].peGreen = 255;
-    palette[255].peBlue  = 255;
-    palette[255].peFlags = PC_NOCOLLAPSE;
-
-    // create the palette object
-    if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256 | 
-                                    DDPCAPS_INITIALIZE, 
-                                    palette,&lpddpal, NULL)))
-    return(0);
-
-    // finally attach the palette to the primary surface
-    if (FAILED(lpddsprimary->SetPalette(lpddpal)))
-      return(0);
 
     // allocate double buffer
-    if (NULL == (double_buffer = new UCHAR[SCREEN_WIDTH*SCREEN_HEIGHT]))
+    if (NULL == (double_buffer = new UCHAR[SCREEN_WIDTH*SCREEN_HEIGHT*4]))
     {
       return 0;
     }
@@ -265,13 +235,6 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     while is exited
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
-
-    // first the palette
-    if (lpddpal)
-    {
-      lpddpal->Release();
-      lpddpal = NULL;
-    }
 
     // now the primary surface
     if (lpddsprimary) {
@@ -328,7 +291,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
                               L"Demo7_4",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
+                              GetSystemMetrics(SM_CXSCREEN), 
+							  GetSystemMetrics(SM_CYSCREEN), // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
