@@ -129,7 +129,7 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
         
         int x = rand() % SCREEN_WIDTH;
         int y = rand() % SCREEN_HEIGHT;
-		// 32 bit = 4 byte / pixel
+		    // 32 bit = 4 byte / pixel
         int pixel_offset = y * SCREEN_WIDTH * 4 + x * 4;
         double_buffer[pixel_offset] = rand() % 256; // Blue
         double_buffer[pixel_offset + 1] = rand() % 256; // Green
@@ -292,7 +292,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
                               GetSystemMetrics(SM_CXSCREEN), 
-							  GetSystemMetrics(SM_CYSCREEN), // initial width, height   
+							                GetSystemMetrics(SM_CYSCREEN), // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
