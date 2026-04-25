@@ -1,5 +1,5 @@
 /* 
-  16-bit blitter filling demo
+  32-bit blitter filling demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -35,7 +35,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 16 // bits per pixel
+#define SCREEN_BPP 32 // bits per pixel
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -46,12 +46,6 @@ typedef unsigned char BYTE;
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
-
-/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
-#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
-
-/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
-#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
@@ -70,8 +64,6 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
-PALETTEENTRY          palette[256];          // color palette
-PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
@@ -139,7 +131,7 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
     // well use a color index from 0-255, but if this was a 
     // 16/24/32 bit example then we would fill the WORD with
     // the RGB encoding for the pixel - remember!
-    ddbltfx.dwFillColor = _RGB16BIT565(rand()%256,rand()%256,rand()%256);
+    ddbltfx.dwFillColor = _RGB32BIT(255,rand()%256,rand()%256,rand()%256);
 
     // get a random rectangle
     int x1 = rand()%SCREEN_WIDTH;
@@ -266,7 +258,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
                               L"Demo7_6",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
+                              GetSystemMetrics(SM_CXSCREEN), 
+							                GetSystemMetrics(SM_CYSCREEN), // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
