@@ -129,7 +129,7 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
     int x2 = rand()%SCREEN_WIDTH;
     int y2 = rand()%SCREEN_HEIGHT;
 
-	// get a random rectangle for destination
+	  // get a random rectangle for destination
     int x3 = rand()%SCREEN_WIDTH;
     int y3 = rand()%SCREEN_HEIGHT;
     int x4 = rand()%SCREEN_WIDTH;
@@ -189,7 +189,7 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     ddsd.dwFlags =  DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 
     // set the backbuffer count field to 1, use 2 for triple buffering
-	ddsd.dwBackBufferCount = 1;
+	  ddsd.dwBackBufferCount = 1;
     // request a complex, flipable
     ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 
@@ -219,44 +219,18 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    UCHAR* video_buffer = (UCHAR*)ddsd.lpSurface;
    
    // draw the gradient
-   for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++) {
+   for (int y = 0; y < SCREEN_HEIGHT; y++) {
       // build color word up
-      DWORD color = _RGB32BIT(255, 0, (index_y >> 3), 0);
-
-      // replicate color in upper and lower 16 bits of 32-bits word
-      color = (color) | (color << 16);
-
-      // // now color has two pixel in it in 16.16 or RGB.RGB format, use
-      // // a DWORD or 32-bit copy to move the bytes into the next video
-      // // line, we'll need inline assembly though...
-
-      // // draw next line, use a little inline asm baby!
-      // #ifdef _MSC_VER
-      //   // Visual Studio
-      //   __asm {
-      //       CLD                       ; clear direction of copy to forward  
-      //       MOV EAX, color            ; color goes here 
-      //       MOV ECX, (SCREEN_WIDTH/2) ; number of DWORDS goes here 
-      //       MOV EDI, video_buffer     ; address of line to move data
-      //       REP STOSD                 ; send the pentium X on its way
-      //   }
-      // #elif defined(__GNUC__) && defined(__i386__)
-      //  // GCC x86
-      //   asm volatile (
-      //       "cld\n\t"
-      //       "rep stosl"
-      //       : 
-      //       : "a"(color), "c"((SCREEN_WIDTH/2)), "D"(video_buffer)
-      //       : "memory", "cc"
-      //   );
-      // #endif
-      video_buffer[0] = (UCHAR)(color & 0x000000FF);        // Blue
-      video_buffer[1] = (UCHAR)((color & 0x0000FF00) >> 8); // Green
-      video_buffer[2] = (UCHAR)((color & 0x00FF0000) >> 16); // Red
-      video_buffer[3] = (UCHAR)((color & 0xFF000000) >> 24); // Alpha
-
-      // now advance video buffer to next line
-      video_buffer += ddsd.lPitch;
+      DWORD color = _RGB32BIT(255, 0, y, 0);
+      
+      // not use inline assembly to fill line, because i am not familiar with it
+      for (int x = 0; x < SCREEN_WIDTH; x++) {
+        int pixel_offset = y * ddsd.lPitch + x * 4;
+        video_buffer[pixel_offset] = (UCHAR)(color & 0x000000FF);        // Blue
+        video_buffer[pixel_offset + 1] = (UCHAR)((color & 0x0000FF00) >> 8); // Green
+        video_buffer[pixel_offset + 2] = (UCHAR)((color & 0x00FF0000) >> 16); // Red
+        video_buffer[pixel_offset + 3] = (UCHAR)((color & 0xFF000000) >> 24); // Alpha
+      }
    }
 
    if (FAILED(lpddsback->Unlock(NULL))) {
@@ -331,7 +305,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
                               L"Demo7_7",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
+                              GetSystemMetrics(SM_CXSCREEN), 
+							                GetSystemMetrics(SM_CYSCREEN), // initial width, height     
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
