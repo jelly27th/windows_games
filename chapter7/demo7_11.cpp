@@ -1,5 +1,5 @@
 /* 
-  32-bit surface to surface blitter demo
+  16-bit bitmap loading demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -35,7 +35,10 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 32 // bits per pixel
+#define SCREEN_BPP 16 // bits per pixel
+
+#define BITMAP_ID 0x4D42 // universal id for a bitmap
+#define MAX_COLORS_PALETTE 256 // maximum colors in 256 color palette
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -43,9 +46,30 @@ typedef unsigned short WORD;
 typedef unsigned char UCHAR;
 typedef unsigned char BYTE;
 
+// container structure for bitmaps .BMP file
+typedef struct BITMAP_FILE_TAG {
+    BITMAPFILEHEADER bitmapfileheader;  // this contains the bitmapfile header
+    BITMAPINFOHEADER bitmapinfoheader;  // this is all the info including the palette
+    PALETTEENTRY     palette[256];      // we will store the palette here
+    UCHAR            *buffer;           // this is a pointer to the data
+} BITMAP_FILE, *BITMAP_FILE_PTR;
+
+/* prototypes */
+int Flip_Bitmap(UCHAR *image, int bytes_per_line, int height);
+
+int Load_Bitmap_File(BITMAP_FILE_PTR bitmap, char *filename);
+
+int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap);
+
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
+
+/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
+#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
+
+/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
+#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
@@ -64,13 +88,168 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
+PALETTEENTRY          palette[256];          // color palette
+PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
 HRESULT ddrval; // result back from directdraw calls
 DWORD start_clock_count = 0; // used for timing
 
-char buffer[80]; // general printing buffer
+BITMAP_FILE           bitmap;                // holds the bitmap
+
+char buffer[80];                             // general printing buffer
+
+/* function */
+
+/* opens a bitmap file and loads the data into bitmap */
+int Load_Bitmap_File(BITMAP_FILE_PTR bitmap, char *filename)
+{
+
+int file_handle,  // the file handle
+    index;        // looping index
+
+UCHAR   *temp_buffer = NULL; // used to convert 24 bit images to 16 bit
+OFSTRUCT file_data;          // the file data information
+
+// open the file if it exists
+if ((file_handle = OpenFile(filename,&file_data,OF_READ))==-1)
+   return(0);
+
+// now load the bitmap file header
+_lread(file_handle, &bitmap->bitmapfileheader,sizeof(BITMAPFILEHEADER));
+
+// test if this is a bitmap file
+if (bitmap->bitmapfileheader.bfType!=BITMAP_ID)
+   {
+   // close the file
+   _lclose(file_handle);
+
+   // return error
+   return(0);
+   }
+
+// now we know this is a bitmap, so read in all the sections
+
+// first the bitmap infoheader
+
+// now load the bitmap file header
+_lread(file_handle, &bitmap->bitmapinfoheader,sizeof(BITMAPINFOHEADER));
+
+// now load the color palette if there is one
+if (bitmap->bitmapinfoheader.biBitCount == 8)
+   {
+   _lread(file_handle, &bitmap->palette,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
+
+   // now set all the flags in the palette correctly and fix the reversed 
+   // BGR RGBQUAD data format
+   for (index=0; index < MAX_COLORS_PALETTE; index++)
+       {
+       // reverse the red and green fields
+       int temp_color                = bitmap->palette[index].peRed;
+       bitmap->palette[index].peRed  = bitmap->palette[index].peBlue;
+       bitmap->palette[index].peBlue = temp_color;
+       
+       // always set the flags word to this
+       bitmap->palette[index].peFlags = PC_NOCOLLAPSE;
+       } // end for index
+
+    }
+
+// finally the image data itself
+_lseek(file_handle,-(int)(bitmap->bitmapinfoheader.biSizeImage),SEEK_END);
+
+// now read in the image, if the image is 8 or 16 bit then simply read it
+// but if its 24 bit then read it into a temporary area and then convert
+// it to a 16 bit image
+
+if (bitmap->bitmapinfoheader.biBitCount==8 || bitmap->bitmapinfoheader.biBitCount==16 || 
+    bitmap->bitmapinfoheader.biBitCount==24)
+   {
+   // delete the last image if there was one
+   if (bitmap->buffer)
+       free(bitmap->buffer);
+
+   // allocate the memory for the image
+   if (!(bitmap->buffer = (UCHAR *)malloc(bitmap->bitmapinfoheader.biSizeImage)))
+      {
+      // close the file
+      _lclose(file_handle);
+
+      // return error
+      return(0);
+      }
+
+   // now read it in
+   _lread(file_handle,bitmap->buffer,bitmap->bitmapinfoheader.biSizeImage);
+
+   }
+else
+   {
+   // serious problem
+   return(0);
+
+   }
+
+// close the file
+_lclose(file_handle);
+
+// flip the bitmap
+Flip_Bitmap(bitmap->buffer, 
+            bitmap->bitmapinfoheader.biWidth*(bitmap->bitmapinfoheader.biBitCount/8), 
+            bitmap->bitmapinfoheader.biHeight);
+
+// return success
+return(1);
+
+}
+
+/* releases all memory associated with "bitmap" */
+int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap)
+{
+
+if (bitmap->buffer)
+   {
+   // release memory
+   free(bitmap->buffer);
+
+   // reset pointer
+   bitmap->buffer = NULL;
+
+   }
+
+// return success
+return(1);
+
+}
+
+/* used to flip bottom-up .BMP images */
+int Flip_Bitmap(UCHAR *image, int bytes_per_line, int height)
+{
+
+UCHAR *buffer; // used to perform the image processing
+int index;     // looping index
+
+// allocate the temporary buffer
+if (!(buffer = (UCHAR *)malloc(bytes_per_line*height)))
+   return(0);
+
+// copy image to work area
+memcpy(buffer,image,bytes_per_line*height);
+
+// flip vertically
+for (index=0; index < height; index++)
+    memcpy(&image[((height-1) - index)*bytes_per_line],
+           &buffer[index*bytes_per_line], bytes_per_line);
+
+// release the memory
+free(buffer);
+
+// return success
+return(1);
+
+}
+
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   
@@ -110,10 +289,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
-
-   RECT source_rect; // used to hold the destination RECT
-   RECT dest_rect; // used to hold the destination RECT
-
+   
    // make sure this isn't executed again
    if (window_closed) return 0;
 
@@ -123,38 +299,42 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
-    // get a random rectangle for source
-    int x1 = rand()%SCREEN_WIDTH;
-    int y1 = rand()%SCREEN_HEIGHT;
-    int x2 = rand()%SCREEN_WIDTH;
-    int y2 = rand()%SCREEN_HEIGHT;
+    // copy the bitmap image to the primary buffer line by line
+// note this is a good candidate operation to make into a function - hint!
 
-	// get a random rectangle for destination
-    int x3 = rand()%SCREEN_WIDTH;
-    int y3 = rand()%SCREEN_HEIGHT;
-    int x4 = rand()%SCREEN_WIDTH;
-    int y4 = rand()%SCREEN_HEIGHT;
-    // now set up the RECT structure to fill the region from
-    // (x1,y1) to (x2,y2) on the source surface
-    source_rect.left = x1;
-    source_rect.top = y1;
-    source_rect.right = x2;
-    source_rect.bottom = y2;
-    // (x3,y3) to (x4,y4) on the destination surface
-    dest_rect.left = x3;
-    dest_rect.top = y3;
-    dest_rect.right = x4;
-    dest_rect.bottom = y4;
+// lock the primary surface
+lpddsprimary->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
 
-    // make the blitter call
-    if (FAILED(lpddsprimary->Blt(&dest_rect, // pointer to the dest RECT
-                                  lpddsback, // pointer to source surface
-                                  &source_rect, // pointer to source RECT
-                                  DDBLT_WAIT, // control flags
-                                  NULL // pointer to DDBLTFX holding info
-                                  ))) {
-        return 0;
-    }
+// get video pointer to primary surfce
+USHORT *primary_buffer = (USHORT *)ddsd.lpSurface;       
+
+// process each line and copy it into the primary buffer
+for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++)
+    {
+    for (int index_x = 0; index_x < SCREEN_WIDTH; index_x++)
+        {
+        // get BGR values, note the scaling down of the channels, so that they
+        // fit into the 5.6.5 format
+        UCHAR blue  = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 0]) >> 3,
+              green = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 1]) >> 3,
+              red   = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 2]) >> 3;
+
+        // this builds a 16 bit color value in 5.6.5 format (green dominant mode)
+        USHORT pixel = _RGB16BIT565(red,green,blue);
+
+        // write the pixel
+        primary_buffer[index_x + (index_y*ddsd.lPitch >> 1)] = pixel;
+
+        } // end for index_x
+
+   } // end else
+
+// now unlock the primary surface
+if (FAILED(lpddsprimary->Unlock(NULL)))
+   return(0);
+
+
+// do nothing -- look at pretty picture
 
     // return success or failure or your own return code here
     return 1;
@@ -186,83 +366,20 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     DDRAW_INIT_STRUCT(ddsd);
 
     // enable valid fields
-    ddsd.dwFlags =  DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
+    ddsd.dwFlags =  DDSD_CAPS;
 
-    // set the backbuffer count field to 1, use 2 for triple buffering
-	ddsd.dwBackBufferCount = 1;
-    // request a complex, flipable
-    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
+    // request primary surface
+    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE;
 
     // create the primary surface
     if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL))) {
       return 0;
     }
-   // now query for attached surface from the primary surface
-   
-   // this line is need by the call
-   ddsd.ddsCaps.dwCaps = DDSCAPS_BACKBUFFER;
-   
-   // get the attached back buffer surface
-   if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback))) {
-   	 return 0;
-   }
-   
-   // draw a green gradient in back buffer
-   DDRAW_INIT_STRUCT(ddsd);
-   
-   // lock the back buffer
-   if (FAILED(lpddsback->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL))) {
-    return 0;
-   }
-	
-   // get alias to start of surface memory for fast addressing
-   UCHAR* video_buffer = (UCHAR*)ddsd.lpSurface;
-   
-   // draw the gradient
-   for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++) {
-      // build color word up
-      DWORD color = _RGB32BIT(255, 0, (index_y >> 3), 0);
 
-      // replicate color in upper and lower 16 bits of 32-bits word
-      color = (color) | (color << 16);
+// load the 8-bit image
+if (!Load_Bitmap_File(&bitmap,"bitmap24.bmp"))
+   return(0);
 
-      // // now color has two pixel in it in 16.16 or RGB.RGB format, use
-      // // a DWORD or 32-bit copy to move the bytes into the next video
-      // // line, we'll need inline assembly though...
-
-      // // draw next line, use a little inline asm baby!
-      // #ifdef _MSC_VER
-      //   // Visual Studio
-      //   __asm {
-      //       CLD                       ; clear direction of copy to forward  
-      //       MOV EAX, color            ; color goes here 
-      //       MOV ECX, (SCREEN_WIDTH/2) ; number of DWORDS goes here 
-      //       MOV EDI, video_buffer     ; address of line to move data
-      //       REP STOSD                 ; send the pentium X on its way
-      //   }
-      // #elif defined(__GNUC__) && defined(__i386__)
-      //  // GCC x86
-      //   asm volatile (
-      //       "cld\n\t"
-      //       "rep stosl"
-      //       : 
-      //       : "a"(color), "c"((SCREEN_WIDTH/2)), "D"(video_buffer)
-      //       : "memory", "cc"
-      //   );
-      // #endif
-      video_buffer[0] = (UCHAR)(color & 0x000000FF);        // Blue
-      video_buffer[1] = (UCHAR)((color & 0x0000FF00) >> 8); // Green
-      video_buffer[2] = (UCHAR)((color & 0x00FF0000) >> 16); // Red
-      video_buffer[3] = (UCHAR)((color & 0xFF000000) >> 24); // Alpha
-
-      // now advance video buffer to next line
-      video_buffer += ddsd.lPitch;
-   }
-
-   if (FAILED(lpddsback->Unlock(NULL))) {
-    return 0;
-   }
-    
     return 1;
 }
 
@@ -272,12 +389,13 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
     
-    // now the back buffer surface
-    if (lpddsback)
-    {
-    lpddsback->Release();
-    lpddsback = NULL;
-    } 
+   // now the back buffer surface
+   if (lpddpal)
+   {
+     lpddpal->Release();
+     lpddpal = NULL;
+    }
+
 
     // now the primary surface
     if (lpddsprimary) {
@@ -290,6 +408,9 @@ int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
         lpdd->Release();
         lpdd = NULL;
     }
+
+    // unload the bitmap file, we no longer need it
+Unload_Bitmap_File(&bitmap);
 
     return 1;
 }
@@ -328,7 +449,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_7",  // title
+                              L"Demo7_11",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
                               SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   

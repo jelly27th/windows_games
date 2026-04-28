@@ -1,5 +1,5 @@
 /* 
-  32-bit surface to surface blitter demo
+  Windowed DirectDraw Demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -33,9 +33,9 @@
 
 #define WINDOW_CLASS_NAME L"WINCLASS1"
 
-#define SCREEN_WIDTH 640
-#define SCREEN_HEIGHT 480
-#define SCREEN_BPP 32 // bits per pixel
+// size of window
+#define WINDOW_WIDTH    400
+#define WINDOW_HEIGHT   400 
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -43,9 +43,20 @@ typedef unsigned short WORD;
 typedef unsigned char UCHAR;
 typedef unsigned char BYTE;
 
+/* prototypes */
+
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
+
+/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
+#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
+
+/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
+#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
+
+// this builds a 24 bit color value in 8.8.8 format 
+#define _RGB24BIT(a,r,g,b) ((b) + ((g) << 8) + ((r) << 16) )
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
@@ -64,13 +75,20 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
+PALETTEENTRY          palette[256];          // color palette
+PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
 HRESULT ddrval; // result back from directdraw calls
 DWORD start_clock_count = 0; // used for timing
 
-char buffer[80]; // general printing buffer
+int pixel_format = 0;                        // global to hold the bits per pixel
+char buffer[80];                             // general printing buffer
+
+/* function */
+
+
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   
@@ -110,9 +128,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
-
-   RECT source_rect; // used to hold the destination RECT
-   RECT dest_rect; // used to hold the destination RECT
+   
 
    // make sure this isn't executed again
    if (window_closed) return 0;
@@ -123,42 +139,11 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
-    // get a random rectangle for source
-    int x1 = rand()%SCREEN_WIDTH;
-    int y1 = rand()%SCREEN_HEIGHT;
-    int x2 = rand()%SCREEN_WIDTH;
-    int y2 = rand()%SCREEN_HEIGHT;
 
-	// get a random rectangle for destination
-    int x3 = rand()%SCREEN_WIDTH;
-    int y3 = rand()%SCREEN_HEIGHT;
-    int x4 = rand()%SCREEN_WIDTH;
-    int y4 = rand()%SCREEN_HEIGHT;
-    // now set up the RECT structure to fill the region from
-    // (x1,y1) to (x2,y2) on the source surface
-    source_rect.left = x1;
-    source_rect.top = y1;
-    source_rect.right = x2;
-    source_rect.bottom = y2;
-    // (x3,y3) to (x4,y4) on the destination surface
-    dest_rect.left = x3;
-    dest_rect.top = y3;
-    dest_rect.right = x4;
-    dest_rect.bottom = y4;
+// return success or failure or your own return code here
+return(1);
 
-    // make the blitter call
-    if (FAILED(lpddsprimary->Blt(&dest_rect, // pointer to the dest RECT
-                                  lpddsback, // pointer to source surface
-                                  &source_rect, // pointer to source RECT
-                                  DDBLT_WAIT, // control flags
-                                  NULL // pointer to DDBLTFX holding info
-                                  ))) {
-        return 0;
-    }
-
-    // return success or failure or your own return code here
-    return 1;
-}
+} // end Game_Main
 
 /*  
     this is call once after the initial window is created  and
@@ -166,103 +151,43 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
 */
 int Game_Init(void* parms = NULL, int num_parms = 0) {
 
+DDPIXELFORMAT ddpixelformat; // hold the pixel format
+
     // create IDirectDraw instance 7.0 object and test for error
     if (FAILED(DirectDrawCreateEx(NULL, (void**)&lpdd, IID_IDirectDraw7, NULL))) {
         return 0;
     }
 
     // set cooperation to full screen 
-    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, 
-                                         DDSCL_FULLSCREEN | DDSCL_EXCLUSIVE | 
-	                                       DDSCL_ALLOWMODEX | DDSCL_ALLOWREBOOT))) {
+    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_NORMAL))) {
         return 0;
     }
 
-    if (FAILED(lpdd->SetDisplayMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, 0, 0))) {
-      return 0;
-    }
+// clear ddsd and set size
+DDRAW_INIT_STRUCT(ddsd); 
 
-    // clear ddsd and set size
-    DDRAW_INIT_STRUCT(ddsd);
+// enable valid fields
+ddsd.dwFlags = DDSD_CAPS;
 
-    // enable valid fields
-    ddsd.dwFlags =  DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
+// request primary surface
+ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 
-    // set the backbuffer count field to 1, use 2 for triple buffering
-	ddsd.dwBackBufferCount = 1;
-    // request a complex, flipable
-    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
+// create the primary surface
+if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
+   return(0);
 
-    // create the primary surface
-    if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL))) {
-      return 0;
-    }
-   // now query for attached surface from the primary surface
-   
-   // this line is need by the call
-   ddsd.ddsCaps.dwCaps = DDSCAPS_BACKBUFFER;
-   
-   // get the attached back buffer surface
-   if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback))) {
-   	 return 0;
-   }
-   
-   // draw a green gradient in back buffer
-   DDRAW_INIT_STRUCT(ddsd);
-   
-   // lock the back buffer
-   if (FAILED(lpddsback->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL))) {
-    return 0;
-   }
-	
-   // get alias to start of surface memory for fast addressing
-   UCHAR* video_buffer = (UCHAR*)ddsd.lpSurface;
-   
-   // draw the gradient
-   for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++) {
-      // build color word up
-      DWORD color = _RGB32BIT(255, 0, (index_y >> 3), 0);
+// get pixel format
 
-      // replicate color in upper and lower 16 bits of 32-bits word
-      color = (color) | (color << 16);
+// clean out the structure and set it up
+DDRAW_INIT_STRUCT(ddpixelformat);
 
-      // // now color has two pixel in it in 16.16 or RGB.RGB format, use
-      // // a DWORD or 32-bit copy to move the bytes into the next video
-      // // line, we'll need inline assembly though...
+// get the pixel format
+lpddsprimary->GetPixelFormat(&ddpixelformat);
 
-      // // draw next line, use a little inline asm baby!
-      // #ifdef _MSC_VER
-      //   // Visual Studio
-      //   __asm {
-      //       CLD                       ; clear direction of copy to forward  
-      //       MOV EAX, color            ; color goes here 
-      //       MOV ECX, (SCREEN_WIDTH/2) ; number of DWORDS goes here 
-      //       MOV EDI, video_buffer     ; address of line to move data
-      //       REP STOSD                 ; send the pentium X on its way
-      //   }
-      // #elif defined(__GNUC__) && defined(__i386__)
-      //  // GCC x86
-      //   asm volatile (
-      //       "cld\n\t"
-      //       "rep stosl"
-      //       : 
-      //       : "a"(color), "c"((SCREEN_WIDTH/2)), "D"(video_buffer)
-      //       : "memory", "cc"
-      //   );
-      // #endif
-      video_buffer[0] = (UCHAR)(color & 0x000000FF);        // Blue
-      video_buffer[1] = (UCHAR)((color & 0x0000FF00) >> 8); // Green
-      video_buffer[2] = (UCHAR)((color & 0x00FF0000) >> 16); // Red
-      video_buffer[3] = (UCHAR)((color & 0xFF000000) >> 24); // Alpha
+// set global pixel format
+pixel_format = ddpixelformat.dwRGBBitCount;
 
-      // now advance video buffer to next line
-      video_buffer += ddsd.lPitch;
-   }
-
-   if (FAILED(lpddsback->Unlock(NULL))) {
-    return 0;
-   }
-    
+// return success or failure or your own return code here
     return 1;
 }
 
@@ -272,12 +197,6 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
     
-    // now the back buffer surface
-    if (lpddsback)
-    {
-    lpddsback->Release();
-    lpddsback = NULL;
-    } 
 
     // now the primary surface
     if (lpddsprimary) {
@@ -328,10 +247,10 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_7",  // title
-                              WS_POPUP | WS_VISIBLE,
+                              L"Demo7_18",  // title
+                              WS_OVERLAPPED | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
+                              WINDOW_WIDTH, WINDOW_HEIGHT, // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application

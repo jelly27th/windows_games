@@ -1,5 +1,5 @@
 /* 
-  32-bit surface to surface blitter demo
+  DirectX/GDI Demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -35,7 +35,10 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 32 // bits per pixel
+#define SCREEN_BPP 8 // bits per pixel
+
+#define BITMAP_ID 0x4D42 // universal id for a bitmap
+#define MAX_COLORS_PALETTE 256 // maximum colors in 256 color palette
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -43,9 +46,19 @@ typedef unsigned short WORD;
 typedef unsigned char UCHAR;
 typedef unsigned char BYTE;
 
+/* prototypes */
+int Draw_Text_GDI(char *text, int x,int y,
+                  COLORREF color, LPDIRECTDRAWSURFACE7 lpdds);
+
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
+
+/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
+#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
+
+/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
+#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
@@ -64,13 +77,45 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
+PALETTEENTRY          palette[256];          // color palette
+PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
 HRESULT ddrval; // result back from directdraw calls
 DWORD start_clock_count = 0; // used for timing
 
-char buffer[80]; // general printing buffer
+char buffer[80];                             // general printing buffer
+
+/* function */
+
+/*
+  draws the sent text on the sent surface 
+  using color index as the color in the palette
+*/
+int Draw_Text_GDI(char *text, int x,int y,COLORREF color, LPDIRECTDRAWSURFACE7 lpdds) {
+  HDC xdc; // the working dc
+
+// get the dc from surface
+if (FAILED(lpdds->GetDC(&xdc)))
+   return(0);
+
+// set the colors for the text up
+SetTextColor(xdc,color);
+
+// set background mode to transparent so black isn't copied
+SetBkMode(xdc, TRANSPARENT);
+
+// draw the text a
+TextOutA(xdc,x,y,text,strlen(text));
+
+// release the dc
+lpdds->ReleaseDC(xdc);
+
+// return success
+return(1);
+
+}
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   
@@ -110,9 +155,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
-
-   RECT source_rect; // used to hold the destination RECT
-   RECT dest_rect; // used to hold the destination RECT
+   
 
    // make sure this isn't executed again
    if (window_closed) return 0;
@@ -123,38 +166,21 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
-    // get a random rectangle for source
-    int x1 = rand()%SCREEN_WIDTH;
-    int y1 = rand()%SCREEN_HEIGHT;
-    int x2 = rand()%SCREEN_WIDTH;
-    int y2 = rand()%SCREEN_HEIGHT;
+// print shadowed text using GDI
+int x = rand()%SCREEN_WIDTH;
+int y = rand()%SCREEN_HEIGHT;
 
-	// get a random rectangle for destination
-    int x3 = rand()%SCREEN_WIDTH;
-    int y3 = rand()%SCREEN_HEIGHT;
-    int x4 = rand()%SCREEN_WIDTH;
-    int y4 = rand()%SCREEN_HEIGHT;
-    // now set up the RECT structure to fill the region from
-    // (x1,y1) to (x2,y2) on the source surface
-    source_rect.left = x1;
-    source_rect.top = y1;
-    source_rect.right = x2;
-    source_rect.bottom = y2;
-    // (x3,y3) to (x4,y4) on the destination surface
-    dest_rect.left = x3;
-    dest_rect.top = y3;
-    dest_rect.right = x4;
-    dest_rect.bottom = y4;
+// first print shadow
+Draw_Text_GDI("DirectX Working with GDI!", x+4,y+4, 
+              RGB(64,64,64), lpddsprimary);
 
-    // make the blitter call
-    if (FAILED(lpddsprimary->Blt(&dest_rect, // pointer to the dest RECT
-                                  lpddsback, // pointer to source surface
-                                  &source_rect, // pointer to source RECT
-                                  DDBLT_WAIT, // control flags
-                                  NULL // pointer to DDBLTFX holding info
-                                  ))) {
-        return 0;
-    }
+// now text on top of it
+Draw_Text_GDI("DirectX Working with GDI!", x,y, 
+              RGB(rand()%256,rand()%256,rand()%256), lpddsprimary);
+
+
+// wait a sec
+Sleep(10);
 
     // return success or failure or your own return code here
     return 1;
@@ -185,84 +211,50 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     // clear ddsd and set size
     DDRAW_INIT_STRUCT(ddsd);
 
-    // enable valid fields
-    ddsd.dwFlags =  DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
+// enable valid fields
+ddsd.dwFlags = DDSD_CAPS;
 
-    // set the backbuffer count field to 1, use 2 for triple buffering
-	ddsd.dwBackBufferCount = 1;
-    // request a complex, flipable
-    ddsd.ddsCaps.dwCaps =  DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
+// request primary surface
+ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 
-    // create the primary surface
-    if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL))) {
-      return 0;
-    }
-   // now query for attached surface from the primary surface
-   
-   // this line is need by the call
-   ddsd.ddsCaps.dwCaps = DDSCAPS_BACKBUFFER;
-   
-   // get the attached back buffer surface
-   if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback))) {
-   	 return 0;
-   }
-   
-   // draw a green gradient in back buffer
-   DDRAW_INIT_STRUCT(ddsd);
-   
-   // lock the back buffer
-   if (FAILED(lpddsback->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL))) {
-    return 0;
-   }
-	
-   // get alias to start of surface memory for fast addressing
-   UCHAR* video_buffer = (UCHAR*)ddsd.lpSurface;
-   
-   // draw the gradient
-   for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++) {
-      // build color word up
-      DWORD color = _RGB32BIT(255, 0, (index_y >> 3), 0);
+// create the primary surface
+if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
+   return(0);
 
-      // replicate color in upper and lower 16 bits of 32-bits word
-      color = (color) | (color << 16);
+// build up the palette data array
+for (int color=1; color < 255; color++)
+    {
+    // fill with random RGB values
+    palette[color].peRed   = rand()%256;
+    palette[color].peGreen = rand()%256;
+    palette[color].peBlue  = rand()%256;
 
-      // // now color has two pixel in it in 16.16 or RGB.RGB format, use
-      // // a DWORD or 32-bit copy to move the bytes into the next video
-      // // line, we'll need inline assembly though...
+    // set flags field to PC_NOCOLLAPSE
+    palette[color].peFlags = PC_NOCOLLAPSE;
+    } // end for color
 
-      // // draw next line, use a little inline asm baby!
-      // #ifdef _MSC_VER
-      //   // Visual Studio
-      //   __asm {
-      //       CLD                       ; clear direction of copy to forward  
-      //       MOV EAX, color            ; color goes here 
-      //       MOV ECX, (SCREEN_WIDTH/2) ; number of DWORDS goes here 
-      //       MOV EDI, video_buffer     ; address of line to move data
-      //       REP STOSD                 ; send the pentium X on its way
-      //   }
-      // #elif defined(__GNUC__) && defined(__i386__)
-      //  // GCC x86
-      //   asm volatile (
-      //       "cld\n\t"
-      //       "rep stosl"
-      //       : 
-      //       : "a"(color), "c"((SCREEN_WIDTH/2)), "D"(video_buffer)
-      //       : "memory", "cc"
-      //   );
-      // #endif
-      video_buffer[0] = (UCHAR)(color & 0x000000FF);        // Blue
-      video_buffer[1] = (UCHAR)((color & 0x0000FF00) >> 8); // Green
-      video_buffer[2] = (UCHAR)((color & 0x00FF0000) >> 16); // Red
-      video_buffer[3] = (UCHAR)((color & 0xFF000000) >> 24); // Alpha
+// now fill in entry 0 and 255 with black and white
+palette[0].peRed     = 0;
+palette[0].peGreen   = 0;
+palette[0].peBlue    = 0;
+palette[0].peFlags   = PC_NOCOLLAPSE;
 
-      // now advance video buffer to next line
-      video_buffer += ddsd.lPitch;
-   }
+palette[255].peRed   = 255;
+palette[255].peGreen = 255;
+palette[255].peBlue  = 255;
+palette[255].peFlags = PC_NOCOLLAPSE;
 
-   if (FAILED(lpddsback->Unlock(NULL))) {
-    return 0;
-   }
-    
+// create the palette object
+if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256 | 
+                                DDPCAPS_INITIALIZE, 
+                                palette,&lpddpal, NULL)))
+return(0);
+
+// finally attach the palette to the primary surface
+if (FAILED(lpddsprimary->SetPalette(lpddpal)))
+   return(0);
+
+// return success or failure or your own return code here
     return 1;
 }
 
@@ -272,12 +264,13 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
     
-    // now the back buffer surface
-    if (lpddsback)
-    {
-    lpddsback->Release();
-    lpddsback = NULL;
-    } 
+   // now the back buffer surface
+   if (lpddpal)
+   {
+     lpddpal->Release();
+     lpddpal = NULL;
+    }
+
 
     // now the primary surface
     if (lpddsprimary) {
@@ -328,7 +321,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_7",  // title
+                              L"Demo7_17",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
                               SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
