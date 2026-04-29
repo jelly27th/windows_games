@@ -1,5 +1,6 @@
 /* 
-  8-bit software bitmap clipper demo
+  32-bit software bitmap clipper demo
+  Note: it is not working correctly.
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -35,7 +36,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 8 // bits per pixel
+#define SCREEN_BPP 32 // bits per pixel
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -53,12 +54,6 @@ typedef struct HAPPY_FACE_TYP {
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
 
-/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
-#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
-
-/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
-#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
-
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
 
@@ -68,7 +63,7 @@ typedef struct HAPPY_FACE_TYP {
 /* prototypes */
 void Blit_Clipped(int x, int y, 
                  int width, int height,
-                 UCHAR* bitmap,
+                 DWORD* bitmap,
                  UCHAR* video_buffer, int mempitch);
 
 /* global variables */
@@ -82,8 +77,6 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
-PALETTEENTRY          palette[256];          // color palette
-PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
@@ -93,23 +86,27 @@ DWORD start_clock_count = 0; // used for timing
 char buffer[80]; // general printing buffer
 
 // a low tech bitmap that uses palette entry 1 for the color
-UCHAR happy_bitmap[64] = {0,0,0,0,0,0,0,0,
-                          0,0,1,1,1,1,0,0,
-                          0,1,0,1,1,0,1,0,
-                          0,1,1,1,1,1,1,0,
-                          0,1,0,1,1,0,1,0,
-                          0,1,1,0,0,1,1,0,
-                          0,0,1,1,1,1,0,0,
-                          0,0,0,0,0,0,0,0};
+DWORD happy_bitmap[64] = {
+    0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000,
+    0xFF000000, 0xFF000000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFF000000, 0xFF000000,
+    0xFF000000, 0xFFFF0000, 0xFF000000, 0xFFFF0000, 0xFFFF0000, 0xFF000000, 0xFFFF0000, 0xFF000000,
+    0xFF000000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFF000000,
+    0xFF000000, 0xFFFF0000, 0xFF000000, 0xFFFF0000, 0xFFFF0000, 0xFF000000, 0xFFFF0000, 0xFF000000,
+    0xFF000000, 0xFFFF0000, 0xFFFF0000, 0xFF000000, 0xFF000000, 0xFFFF0000, 0xFFFF0000, 0xFF000000,
+    0xFF000000, 0xFF000000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFF000000, 0xFF000000,
+    0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000
+};
 
-UCHAR sad_bitmap[64] = {0,0,0,0,0,0,0,0,
-                        0,0,1,1,1,1,0,0,
-                        0,1,0,1,1,0,1,0,
-                        0,1,1,1,1,1,1,0,
-                        0,1,1,0,0,1,1,0,
-                        0,1,0,1,1,0,1,0,
-                        0,0,1,1,1,1,0,0,
-                        0,0,0,0,0,0,0,0};
+DWORD sad_bitmap[64] = {
+    0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000,
+    0xFF000000, 0xFF000000, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF000000, 0xFF000000,
+    0xFF000000, 0xFF00FF00, 0xFF000000, 0xFF00FF00, 0xFF00FF00, 0xFF000000, 0xFF00FF00, 0xFF000000,
+    0xFF000000, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF000000,
+    0xFF000000, 0xFF00FF00, 0xFF00FF00, 0xFF000000, 0xFF000000, 0xFF00FF00, 0xFF00FF00, 0xFF000000,
+    0xFF000000, 0xFF00FF00, 0xFF000000, 0xFF00FF00, 0xFF00FF00, 0xFF000000, 0xFF00FF00, 0xFF000000,
+    0xFF000000, 0xFF000000, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF00FF00, 0xFF000000, 0xFF000000,
+    0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000
+};
 
 HAPPY_FACE happy_faces[100]; // this holds all the happu faces
 
@@ -200,7 +197,7 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
     }                   
 
     // draw all the happy face
-    for (int face = 0; face < 1000; face++) {
+    for (int face = 0; face < 100; face++) {
       // are we happy or sad ?
       if (1 == happy) {
         // we are happy
@@ -303,43 +300,6 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    	 return 0;
    }
     
-    // build up the palette data array
-    for (int color=1; color < 255; color++) {
-        // fill with random RGB values
-        palette[color].peRed   = rand()%256;
-        palette[color].peGreen = rand()%256;
-        palette[color].peBlue  = rand()%256;
-
-        // set flags field to PC_NOCOLLAPSE
-        palette[color].peFlags = PC_NOCOLLAPSE;
-    }
-
-    // now fill in entry 0 and 255 with black and white
-    palette[0].peRed     = 0;
-    palette[0].peGreen   = 0;
-    palette[0].peBlue    = 0;
-    palette[0].peFlags   = PC_NOCOLLAPSE;
-
-    palette[255].peRed   = 255;
-    palette[255].peGreen = 255;
-    palette[255].peBlue  = 255;
-    palette[255].peFlags = PC_NOCOLLAPSE;
-
-	// make color 1 yellow
-	palette[1].peRed     = 255;
-	palette[1].peGreen   = 255;
-	palette[1].peBlue    = 0;
-	palette[1].peFlags   = PC_NOCOLLAPSE;
-    // create the palette object
-    if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256 | 
-                                    DDPCAPS_INITIALIZE, 
-                                    palette,&lpddpal, NULL)))
-    return(0);
-
-    // finally attach the palette to the primary surface
-    if (FAILED(lpddsprimary->SetPalette(lpddpal)))
-      return(0);
-    
     // initialize all the happy faces
     for (int face = 0; face < 100; face++){
       // set random position
@@ -425,7 +385,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
                               L"Demo7_8",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
+                              GetSystemMetrics(SM_CXSCREEN), 
+                              GetSystemMetrics(SM_CYSCREEN), // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
@@ -469,12 +430,11 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
 
 /*
   this function blits and clips bitmap the image sent in bitmaps to the 
-  destination surface pointed to by video_buffer. the function assumes a
-  640 * 480 * 8 mode
+  destination surface pointed to by video_buffer.
 */
 void Blit_Clipped(int x, int y, // position to draw bitmap
                  int width, int height, // size of bitmap in pixels
-                 UCHAR* bitmap, // pointer to bitmap data
+                 DWORD* bitmap, // pointer to bitmap data
                  UCHAR* video_buffer, // pointer to video buffer surface
                  int mempitch) // video pitch per line
 {
@@ -511,25 +471,31 @@ void Blit_Clipped(int x, int y, // position to draw bitmap
   int dy = y2 - y1 + 1;
 
   // compute the starting point in the video buffer
-  video_buffer += (x1+ y1*mempitch);
+  UCHAR* dest_ptr = video_buffer + (4*x1+ y1*mempitch);
 
   // compute starting point in the bitmap to scan data from
-  bitmap += (y_off * width + x_off);
+  DWORD* src_ptr = bitmap + (y_off * width + x_off);
 
   // at this point bitmap is pointing to the first pixel in the bitmap that needs to
   // be blitted, and video_buffer is pointing to the memory location on the destination
   // buffer to put it, so now enter rasterizer loop
-  UCHAR pixel;
+  DWORD pixel;
 
-  for (int index_y = 0; index_y < dy; index_y++) {
+  for (int y = 0; y < dy; y++) {
     // inner loop, where the action takes place
-    for (int index_x = 0; index_x < dx; index_x++) {
+    for (int x = 0; x < dx; x++) {
       // read pixel from source bitmap, test for transparency and plot
-      if ((pixel = bitmap[index_x])) video_buffer[index_x] = pixel;
-
-      // advance pointers
-      video_buffer += mempitch; // bytes per scanline
-      bitmap += width; // bytes per row in bitmap
+      pixel = src_ptr[x];
+      if (0xFF000000 != pixel) {
+        // int pixel_offset = y * ddsd.lPitch + x * 4;
+        video_buffer[x * 4] = (UCHAR)(pixel & 0x000000FF);        // Blue
+        video_buffer[x * 4 + 1] = (UCHAR)((pixel & 0x0000FF00) >> 8); // Green
+        video_buffer[x * 4 + 2] = (UCHAR)((pixel & 0x00FF0000) >> 16); // Red
+        video_buffer[x * 4 + 3] = (UCHAR)((pixel & 0xFF000000) >> 24); // Alpha
+      }
     }
+    // advance pointers
+    video_buffer += mempitch; // bytes per scanline
+    bitmap += width; // bytes per row in bitmap
   }
 }

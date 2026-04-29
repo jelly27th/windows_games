@@ -1,5 +1,5 @@
 /* 
-  8-bit clipper demo
+  32-bit clipper demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -35,7 +35,7 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define SCREEN_BPP 8 // bits per pixel
+#define SCREEN_BPP 32 // bits per pixel
 
 #define MAX_COLORS_PALETTE 256 // maximum colors in 256 color palette
 
@@ -48,12 +48,6 @@ typedef unsigned char BYTE;
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
-
-/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
-#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
-
-/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
-#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
@@ -76,8 +70,6 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
-PALETTEENTRY          palette[256];          // color palette
-PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
@@ -223,27 +215,6 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback))) {
    	 return 0;
    }
-    
-    // clear all entries defensive programming
-    memset(palette, 0, MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
-
-    // create a R,G,B,GR gradient palette
-    for (int index = 0; index < 256; index++) {
-
-      // set each entry in the palette
-      if (index < 64) {
-        palette[index].peRed = index * 4; // shades of red
-      } else if (index >= 64 && index < 128) {
-        palette[index].peGreen = (index - 64) * 4; // shades of green
-      } else if (index >= 128 && index < 192){
-        palette[index].peBlue = (index - 128) * 4; // shades of blue
-      } else if (index >= 192 && index < 256) {
-        palette[index].peRed = palette[index].peGreen = palette[index].peBlue = (index - 192) *4; // shades of gray
-      }
-
-      // set flag to force directdraw to leave alone
-      palette[index].peFlags = PC_NOCOLLAPSE;
-    }
 
     // draw a color gradient in back buffer
     DDRAW_INIT_STRUCT(ddsd);
@@ -257,11 +228,19 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     UCHAR* video_buffer = (UCHAR*)ddsd.lpSurface;
 
     // draw the gradient
-    for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++) {
+    for (int y = 0; y < SCREEN_HEIGHT; y++) {
         // fill next line with color
-        memset((void*)video_buffer, index_y % 256, SCREEN_WIDTH);
-        // advance pointer
-        video_buffer += ddsd.lPitch;
+        BYTE red = rand()%256;
+        BYTE green = rand()%256;
+        BYTE blue = rand()%256;
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+
+          int offest = y* ddsd.lPitch + x*4;
+          video_buffer[offest+0] = blue;    // B
+          video_buffer[offest+1] = green;   // G
+          video_buffer[offest+2] = red;     // R
+          video_buffer[offest+3] = 255;     // A
+        }
     }
 
     // unlock the back buffer
@@ -426,7 +405,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
                               L"Demo7_9",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
+                              GetSystemMetrics(SM_CXSCREEN), 
+                              GetSystemMetrics(SM_CYSCREEN), // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application
