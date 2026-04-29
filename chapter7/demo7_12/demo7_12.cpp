@@ -65,12 +65,6 @@ int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap);
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
 
-/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
-#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
-
-/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
-#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
-
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
 
@@ -88,8 +82,6 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
-PALETTEENTRY          palette[256];          // color palette
-PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
@@ -106,44 +98,43 @@ char buffer[80];                             // general printing buffer
 int Load_Bitmap_File(BITMAP_FILE_PTR bitmap, char *filename)
 {
 
-int file_handle,  // the file handle
-    index;        // looping index
+    int file_handle;  // the file handle
+    int index;        // looping index
 
-UCHAR   *temp_buffer = NULL; // used to convert 24 bit images to 16 bit
-OFSTRUCT file_data;          // the file data information
+    UCHAR   *temp_buffer = NULL; // used to convert 24 bit images to 16 bit
+    OFSTRUCT file_data;          // the file data information
 
-// open the file if it exists
-if ((file_handle = OpenFile(filename,&file_data,OF_READ))==-1)
-   return(0);
+    // open the file if it exists
+    if ((file_handle = OpenFile(filename,&file_data,OF_READ))==-1)
+      return(0);
 
-// now load the bitmap file header
-_lread(file_handle, &bitmap->bitmapfileheader,sizeof(BITMAPFILEHEADER));
+    // now load the bitmap file header
+    _lread(file_handle, &bitmap->bitmapfileheader,sizeof(BITMAPFILEHEADER));
 
-// test if this is a bitmap file
-if (bitmap->bitmapfileheader.bfType!=BITMAP_ID)
-   {
-   // close the file
-   _lclose(file_handle);
+    // test if this is a bitmap file
+    if (bitmap->bitmapfileheader.bfType!=BITMAP_ID) {
+      // close the file
+      _lclose(file_handle);
 
-   // return error
-   return(0);
-   }
+      // return error
+      return(0);
+    }
 
-// now we know this is a bitmap, so read in all the sections
+    // now we know this is a bitmap, so read in all the sections
 
-// first the bitmap infoheader
+    // first the bitmap infoheader
 
-// now load the bitmap file header
-_lread(file_handle, &bitmap->bitmapinfoheader,sizeof(BITMAPINFOHEADER));
+    // now load the bitmap file header
+    _lread(file_handle, &bitmap->bitmapinfoheader,sizeof(BITMAPINFOHEADER));
 
-// now load the color palette if there is one
-if (bitmap->bitmapinfoheader.biBitCount == 8)
-   {
-   _lread(file_handle, &bitmap->palette,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
+    // now load the color palette if there is one
+    if (bitmap->bitmapinfoheader.biBitCount == 8)
+    {
+      _lread(file_handle, &bitmap->palette,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
 
-   // now set all the flags in the palette correctly and fix the reversed 
-   // BGR RGBQUAD data format
-   for (index=0; index < MAX_COLORS_PALETTE; index++)
+      // now set all the flags in the palette correctly and fix the reversed 
+      // BGR RGBQUAD data format
+      for (index=0; index < MAX_COLORS_PALETTE; index++)
        {
        // reverse the red and green fields
        int temp_color                = bitmap->palette[index].peRed;
@@ -156,98 +147,85 @@ if (bitmap->bitmapinfoheader.biBitCount == 8)
 
     }
 
-// finally the image data itself
-_lseek(file_handle,-(int)(bitmap->bitmapinfoheader.biSizeImage),SEEK_END);
+    // finally the image data itself
+    _lseek(file_handle,-(int)(bitmap->bitmapinfoheader.biSizeImage),SEEK_END);
 
-// now read in the image, if the image is 8 or 16 bit then simply read it
-// but if its 24 bit then read it into a temporary area and then convert
-// it to a 16 bit image
+    // now read in the image, if the image is 8 or 16 bit then simply read it
+    // but if its 24 bit then read it into a temporary area and then convert
+    // it to a 16 bit image
 
-if (bitmap->bitmapinfoheader.biBitCount==8 || bitmap->bitmapinfoheader.biBitCount==16 || 
-    bitmap->bitmapinfoheader.biBitCount==24)
-   {
-   // delete the last image if there was one
-   if (bitmap->buffer)
-       free(bitmap->buffer);
+    if (bitmap->bitmapinfoheader.biBitCount==8 || bitmap->bitmapinfoheader.biBitCount==16 || 
+        bitmap->bitmapinfoheader.biBitCount==24) {
+      // delete the last image if there was one
+      if (bitmap->buffer) free(bitmap->buffer);
 
-   // allocate the memory for the image
-   if (!(bitmap->buffer = (UCHAR *)malloc(bitmap->bitmapinfoheader.biSizeImage)))
-      {
-      // close the file
-      _lclose(file_handle);
+      // allocate the memory for the image
+      if (!(bitmap->buffer = (UCHAR *)malloc(bitmap->bitmapinfoheader.biSizeImage))) {
+        // close the file
+        _lclose(file_handle);
 
-      // return error
-      return(0);
+        // return error
+        return(0);
       }
 
-   // now read it in
-   _lread(file_handle,bitmap->buffer,bitmap->bitmapinfoheader.biSizeImage);
-
-   }
-else
-   {
-   // serious problem
-   return(0);
-
+      // now read it in
+      _lread(file_handle,bitmap->buffer,bitmap->bitmapinfoheader.biSizeImage);
+   } else {
+     // serious problem
+     return(0);
    }
 
-// close the file
-_lclose(file_handle);
+    // close the file
+    _lclose(file_handle);
 
-// flip the bitmap
-Flip_Bitmap(bitmap->buffer, 
-            bitmap->bitmapinfoheader.biWidth*(bitmap->bitmapinfoheader.biBitCount/8), 
-            bitmap->bitmapinfoheader.biHeight);
+    // flip the bitmap
+    Flip_Bitmap(bitmap->buffer, 
+                bitmap->bitmapinfoheader.biWidth*(bitmap->bitmapinfoheader.biBitCount/8), 
+                bitmap->bitmapinfoheader.biHeight);
 
-// return success
-return(1);
-
+    // return success
+    return(1);
 }
 
 /* releases all memory associated with "bitmap" */
-int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap)
-{
+int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap) {
 
-if (bitmap->buffer)
-   {
-   // release memory
-   free(bitmap->buffer);
+  if (bitmap->buffer) {
+    // release memory
+    free(bitmap->buffer);
+    // reset pointer
+    bitmap->buffer = NULL;
 
-   // reset pointer
-   bitmap->buffer = NULL;
+  }
 
-   }
-
-// return success
-return(1);
-
+  // return success
+  return(1);
 }
 
 /* used to flip bottom-up .BMP images */
-int Flip_Bitmap(UCHAR *image, int bytes_per_line, int height)
-{
+int Flip_Bitmap(UCHAR *image, int bytes_per_line, int height) {
 
-UCHAR *buffer; // used to perform the image processing
-int index;     // looping index
+  UCHAR *buffer; // used to perform the image processing
+  int index;     // looping index
 
-// allocate the temporary buffer
-if (!(buffer = (UCHAR *)malloc(bytes_per_line*height)))
-   return(0);
+  // allocate the temporary buffer
+  if (!(buffer = (UCHAR *)malloc(bytes_per_line*height)))
+    return(0);
 
-// copy image to work area
-memcpy(buffer,image,bytes_per_line*height);
+  // copy image to work area
+  memcpy(buffer,image,bytes_per_line*height);
 
-// flip vertically
-for (index=0; index < height; index++)
-    memcpy(&image[((height-1) - index)*bytes_per_line],
-           &buffer[index*bytes_per_line], bytes_per_line);
+  // flip vertically
+  for (index=0; index < height; index++) {
+      memcpy(&image[((height-1) - index)*bytes_per_line],
+            &buffer[index*bytes_per_line], bytes_per_line);
+  }
 
-// release the memory
-free(buffer);
+  // release the memory
+  free(buffer);
 
-// return success
-return(1);
-
+  // return success
+  return(1);
 }
 
 
@@ -300,40 +278,35 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
     }
 
     // copy the bitmap image to the primary buffer line by line
-// note this is a good candidate operation to make into a function - hint!
+    // note this is a good candidate operation to make into a function - hint!
 
-// lock the primary surface
-lpddsprimary->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
+    // lock the primary surface
+    lpddsprimary->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
 
-// get video pointer to primary surfce
-DWORD *primary_buffer = (DWORD *)ddsd.lpSurface;       
+    // get video pointer to primary surfce
+    DWORD *primary_buffer = (DWORD *)ddsd.lpSurface;       
 
-// process each line and copy it into the primary buffer
-for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++)
-    {
-    for (int index_x = 0; index_x < SCREEN_WIDTH; index_x++)
-        {
-        // get BGR values
-        UCHAR blue  = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 0]),
-              green = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 1]),
-              red   = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 2]);
+    // process each line and copy it into the primary buffer
+    for (int index_y = 0; index_y < SCREEN_HEIGHT; index_y++) {
+        for (int index_x = 0; index_x < SCREEN_WIDTH; index_x++) {
+            // get BGR values
+            UCHAR blue  = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 0]),
+                  green = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 1]),
+                  red   = (bitmap.buffer[index_y*SCREEN_WIDTH*3 + index_x*3 + 2]);
 
-        // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
-        DWORD pixel = _RGB32BIT(0,red,green,blue);
+            // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
+            DWORD pixel = _RGB32BIT(0,red,green,blue);
 
-        // write the pixel
-        primary_buffer[index_x + (index_y*ddsd.lPitch >> 2)] = pixel;
+            // write the pixel
+            primary_buffer[index_x + (index_y*ddsd.lPitch >> 2)] = pixel;
+            }
+      }
 
-        } // end for index_x
+    // now unlock the primary surface
+    if (FAILED(lpddsprimary->Unlock(NULL)))
+      return(0);
 
-   } // end else
-
-// now unlock the primary surface
-if (FAILED(lpddsprimary->Unlock(NULL)))
-   return(0);
-
-
-// do nothing -- look at pretty picture
+    // do nothing -- look at pretty picture
 
     // return success or failure or your own return code here
     return 1;
@@ -375,9 +348,9 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
       return 0;
     }
 
-// load the 8-bit image
-if (!Load_Bitmap_File(&bitmap,"bitmap24.bmp"))
-   return(0);
+    // load the 24-bit image
+    if (!Load_Bitmap_File(&bitmap,(char*)"../resource/bitmap24.bmp"))
+      return(0);
 
     return 1;
 }
@@ -395,7 +368,6 @@ int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
      lpddpal = NULL;
     }
 
-
     // now the primary surface
     if (lpddsprimary) {
       lpddsprimary->Release();
@@ -409,7 +381,7 @@ int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
     }
 
     // unload the bitmap file, we no longer need it
-Unload_Bitmap_File(&bitmap);
+    Unload_Bitmap_File(&bitmap);
 
     return 1;
 }
