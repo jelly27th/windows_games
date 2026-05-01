@@ -1,5 +1,5 @@
 /* 
-  32-bit blitting demo
+  32-bit blitting demo with scaling
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -61,6 +61,9 @@ typedef struct ALIEN_OBJ_TYP {
   int velocity; // x-velocity
   int current_frame; // current frame of animation
   int counter; // used to time animation
+  int width;
+  int height; // size of surface
+  float scale; // scale of object
 } ALIEN_OBJ, *ALIEN_OBJ_PTR;
 
 /* prototypes */
@@ -77,6 +80,10 @@ int Scan_Image_Bitmap(BITMAP_FILE_PTR bitmap, LPDIRECTDRAWSURFACE7 lpdds, int cx
 LPDIRECTDRAWSURFACE7 DDraw_Create_Surface(int width, int height, int mem_flags, int color_key);
 
 int DDraw_Draw_Surface(LPDIRECTDRAWSURFACE7 source, int x, int y, int width, int height, LPDIRECTDRAWSURFACE7 dest, int transparent);
+
+int DDraw_Draw_Surface_Scaled(LPDIRECTDRAWSURFACE7 source, int x, int y, 
+                              int width_src, int height_src, int width_dest, int height_dest, 
+                              LPDIRECTDRAWSURFACE7 dest,  int transparent);
 
 LPDIRECTDRAWCLIPPER DDraw_Attach_Clipper(LPDIRECTDRAWSURFACE7 lpdds, int num_rects, LPRECT clip_list);
 
@@ -384,6 +391,58 @@ return 1;
 
 }
 
+// draw the surface at the x,y defined by dest, send both the original
+// source size of surface, along with the desired size, if they are 
+// different then directdraw will scale the bitmap for you
+// note that we are sending
+// the size of the surface, we could query for it, but that takes time
+// basically, we are really lacking datastructure as this point, since
+// you would create a datastructure that keep important info about the
+// surface, so you did't have to query it from directdraw
+int DDraw_Draw_Surface_Scaled(LPDIRECTDRAWSURFACE7 source, // source surface to draw
+                      int x, int y,                 // position to draw at
+                      int width_src, int height_src,// size of source surface
+                      int width_dest, int height_dest,// size of dest surface
+                      LPDIRECTDRAWSURFACE7 dest,    // surface to draw the surface on
+                      int transparent = 1)          // transparency flag
+{
+    RECT dest_rect;   // the destination rectangle
+    RECT source_rect; // the source rectangle                             
+
+   // fill in the destination rect
+   dest_rect.left   = x;
+   dest_rect.top    = y;
+   dest_rect.right  = x+width_dest-1;
+   dest_rect.bottom = y+height_dest-1;
+
+   // fill in the source rect
+   source_rect.left    = 0;
+   source_rect.top     = 0;
+   source_rect.right   = width_src-1;
+   source_rect.bottom  = height_src-1;
+
+   // test transparency flag
+
+   if (transparent) {
+      // enable color key blit
+      // blt to destination surface
+      if (FAILED(dest->Blt(&dest_rect, source,
+                        &source_rect,(DDBLT_WAIT | DDBLT_KEYSRC),
+                        NULL)))
+            return(0);
+
+   } else {
+      // perform blit without color key
+      // blt to destination surface
+      if (FAILED(dest->Blt(&dest_rect, source,
+                        &source_rect,(DDBLT_WAIT),
+                        NULL)))
+            return(0);
+   }
+
+   return(1);
+}
+
 /* extracts a bitmap out of a bitmap file */
 int Scan_Image_Bitmap(BITMAP_FILE_PTR bitmap,     // bitmap file to scan image data from
                       LPDIRECTDRAWSURFACE7 lpdds, // surface to hold data
@@ -593,11 +652,13 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
 
    // draw all the bots
    for (int index=0; index < 3; index++) {
-    // draw objects
-    DDraw_Draw_Surface(aliens[index].frames[animation_seq[aliens[index].current_frame]], 
-                       aliens[index].x, aliens[index].y,
-                       72,80,
-                       lpddsback);
+      // draw objects but with scaled destination size
+      DDraw_Draw_Surface_Scaled(aliens[index].frames[animation_seq[aliens[index].current_frame]], 
+                        aliens[index].x, aliens[index].y,
+                        aliens[index].width,aliens[index].height,
+                        (float)aliens[index].width*aliens[index].scale,
+                        (float)aliens[index].height*aliens[index].scale,
+                        lpddsback);
    }
 
    // flip pages
@@ -728,6 +789,11 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    aliens[0].velocity       = 2+rand()%4;
    aliens[0].current_frame  = 0;             
    aliens[0].counter        = 0;       
+   aliens[0].width          = 72; // set real size
+   aliens[0].height         = 80;
+   aliens[0].scale          = ((float)(1+rand()%20))/10; // scale from 0.1 to 2.0
+   // fix up feet so they still contact floor
+   aliens[0].y+=(72 - aliens[0].scale*72);
 
    // alien on level 2 of complex
    aliens[1].x              = rand()%SCREEN_WIDTH;
@@ -735,6 +801,11 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    aliens[1].velocity       = 2+rand()%4;
    aliens[1].current_frame  = 0;             
    aliens[1].counter        = 0;  
+   aliens[1].width          = 72; // set real size
+   aliens[1].height         = 80;
+   aliens[1].scale          = ((float)(1+rand()%20))/10; // scale from 0.1 to 2.0
+   // fix up feet so they still contact floor
+   aliens[1].y+=(72 - aliens[1].scale*72);
 
    // alien on level 3 of complex
    aliens[2].x              = rand()%SCREEN_WIDTH;
@@ -742,6 +813,12 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    aliens[2].velocity       = 2+rand()%4;
    aliens[2].current_frame  = 0;             
    aliens[2].counter        = 0;  
+   aliens[2].width          = 72; // set real size
+   aliens[2].height         = 80;
+   aliens[2].scale          = ((float)(1+rand()%20))/10; // scale from 0.1 to 2.0
+   // fix up feet so they still contact floor
+   aliens[2].y+=(72 - aliens[2].scale*72);
+
 
    // now load the bitmap containing the alien imagery
    // then scan the images out into the surfaces of alien[0]
@@ -839,7 +916,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_13",  // title
+                              L"Demo7_14",  // title
                               WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
                               GetSystemMetrics(SM_CXSCREEN), 
