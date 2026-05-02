@@ -1,5 +1,5 @@
 /* 
-  DirectX/GDI Demo
+  Windowed DirectDraw Demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -33,12 +33,9 @@
 
 #define WINDOW_CLASS_NAME L"WINCLASS1"
 
-#define SCREEN_WIDTH 640
-#define SCREEN_HEIGHT 480
-#define SCREEN_BPP 8 // bits per pixel
-
-#define BITMAP_ID 0x4D42 // universal id for a bitmap
-#define MAX_COLORS_PALETTE 256 // maximum colors in 256 color palette
+// size of window
+#define WINDOW_WIDTH    400
+#define WINDOW_HEIGHT   400 
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -47,8 +44,6 @@ typedef unsigned char UCHAR;
 typedef unsigned char BYTE;
 
 /* prototypes */
-int Draw_Text_GDI(char *text, int x,int y,
-                  COLORREF color, LPDIRECTDRAWSURFACE7 lpdds);
 
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
@@ -59,6 +54,9 @@ int Draw_Text_GDI(char *text, int x,int y,
 
 /* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
 #define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
+
+// this builds a 24 bit color value in 8.8.8 format 
+#define _RGB24BIT(a,r,g,b) ((b) + ((g) << 8) + ((r) << 16) )
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
@@ -85,37 +83,10 @@ DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
 HRESULT ddrval; // result back from directdraw calls
 DWORD start_clock_count = 0; // used for timing
 
+int pixel_format = 0;                        // global to hold the bits per pixel
 char buffer[80];                             // general printing buffer
 
 /* function */
-
-/*
-  draws the sent text on the sent surface 
-  using color index as the color in the palette
-*/
-int Draw_Text_GDI(char *text, int x,int y,COLORREF color, LPDIRECTDRAWSURFACE7 lpdds) {
-  HDC xdc; // the working dc
-
-// get the dc from surface
-if (FAILED(lpdds->GetDC(&xdc)))
-   return(0);
-
-// set the colors for the text up
-SetTextColor(xdc,color);
-
-// set background mode to transparent so black isn't copied
-SetBkMode(xdc, TRANSPARENT);
-
-// draw the text a
-TextOutA(xdc,x,y,text,strlen(text));
-
-// release the dc
-lpdds->ReleaseDC(xdc);
-
-// return success
-return(1);
-
-}
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   
@@ -166,24 +137,9 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
-// print shadowed text using GDI
-int x = rand()%SCREEN_WIDTH;
-int y = rand()%SCREEN_HEIGHT;
+  // return success or failure or your own return code here
+  return(1);
 
-// first print shadow
-Draw_Text_GDI("DirectX Working with GDI!", x+4,y+4, 
-              RGB(64,64,64), lpddsprimary);
-
-// now text on top of it
-Draw_Text_GDI("DirectX Working with GDI!", x,y, 
-              RGB(rand()%256,rand()%256,rand()%256), lpddsprimary);
-
-
-// wait a sec
-Sleep(10);
-
-    // return success or failure or your own return code here
-    return 1;
 }
 
 /*  
@@ -192,69 +148,43 @@ Sleep(10);
 */
 int Game_Init(void* parms = NULL, int num_parms = 0) {
 
+DDPIXELFORMAT ddpixelformat; // hold the pixel format
+
     // create IDirectDraw instance 7.0 object and test for error
     if (FAILED(DirectDrawCreateEx(NULL, (void**)&lpdd, IID_IDirectDraw7, NULL))) {
         return 0;
     }
 
     // set cooperation to full screen 
-    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, 
-                                         DDSCL_FULLSCREEN | DDSCL_EXCLUSIVE | 
-	                                       DDSCL_ALLOWMODEX | DDSCL_ALLOWREBOOT))) {
+    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_NORMAL))) {
         return 0;
     }
 
-    if (FAILED(lpdd->SetDisplayMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, 0, 0))) {
-      return 0;
-    }
-
     // clear ddsd and set size
-    DDRAW_INIT_STRUCT(ddsd);
+    DDRAW_INIT_STRUCT(ddsd); 
 
-// enable valid fields
-ddsd.dwFlags = DDSD_CAPS;
+    // enable valid fields
+    ddsd.dwFlags = DDSD_CAPS;
 
-// request primary surface
-ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    // request primary surface
+    ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 
-// create the primary surface
-if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
-   return(0);
+    // create the primary surface
+    if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
+      return(0);
 
-// build up the palette data array
-for (int color=1; color < 255; color++)
-    {
-    // fill with random RGB values
-    palette[color].peRed   = rand()%256;
-    palette[color].peGreen = rand()%256;
-    palette[color].peBlue  = rand()%256;
+    // get pixel format
 
-    // set flags field to PC_NOCOLLAPSE
-    palette[color].peFlags = PC_NOCOLLAPSE;
-    } // end for color
+    // clean out the structure and set it up
+    DDRAW_INIT_STRUCT(ddpixelformat);
 
-// now fill in entry 0 and 255 with black and white
-palette[0].peRed     = 0;
-palette[0].peGreen   = 0;
-palette[0].peBlue    = 0;
-palette[0].peFlags   = PC_NOCOLLAPSE;
+    // get the pixel format
+    lpddsprimary->GetPixelFormat(&ddpixelformat);
 
-palette[255].peRed   = 255;
-palette[255].peGreen = 255;
-palette[255].peBlue  = 255;
-palette[255].peFlags = PC_NOCOLLAPSE;
+    // set global pixel format
+    pixel_format = ddpixelformat.dwRGBBitCount;
 
-// create the palette object
-if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT | DDPCAPS_ALLOW256 | 
-                                DDPCAPS_INITIALIZE, 
-                                palette,&lpddpal, NULL)))
-return(0);
-
-// finally attach the palette to the primary surface
-if (FAILED(lpddsprimary->SetPalette(lpddpal)))
-   return(0);
-
-// return success or failure or your own return code here
+    // return success or failure or your own return code here
     return 1;
 }
 
@@ -263,14 +193,6 @@ if (FAILED(lpddsprimary->SetPalette(lpddpal)))
     while is exited
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
-    
-   // now the back buffer surface
-   if (lpddpal)
-   {
-     lpddpal->Release();
-     lpddpal = NULL;
-    }
-
 
     // now the primary surface
     if (lpddsprimary) {
@@ -321,10 +243,10 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_17",  // title
-                              WS_POPUP | WS_VISIBLE,
+                              L"Demo7_18",  // title
+                              WS_OVERLAPPED | WS_VISIBLE,
                               0,0,          // initial x, y
-                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
+                              WINDOW_WIDTH, WINDOW_HEIGHT, // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application

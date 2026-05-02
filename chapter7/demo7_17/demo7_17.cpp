@@ -1,5 +1,5 @@
 /* 
-  Windowed DirectDraw Demo
+  DirectX/GDI Demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -33,9 +33,12 @@
 
 #define WINDOW_CLASS_NAME L"WINCLASS1"
 
-// size of window
-#define WINDOW_WIDTH    400
-#define WINDOW_HEIGHT   400 
+#define SCREEN_WIDTH 640
+#define SCREEN_HEIGHT 480
+#define SCREEN_BPP 32 // bits per pixel
+
+#define BITMAP_ID 0x4D42 // universal id for a bitmap
+#define MAX_COLORS_PALETTE 256 // maximum colors in 256 color palette
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -44,19 +47,12 @@ typedef unsigned char UCHAR;
 typedef unsigned char BYTE;
 
 /* prototypes */
+int Draw_Text_GDI(char *text, int x,int y,
+                  COLORREF color, LPDIRECTDRAWSURFACE7 lpdds);
 
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
-
-/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
-#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
-
-/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
-#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
-
-// this builds a 24 bit color value in 8.8.8 format 
-#define _RGB24BIT(a,r,g,b) ((b) + ((g) << 8) + ((r) << 16) )
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + (g << 8) + (r << 16) + (a << 24))
@@ -75,20 +71,43 @@ LPDIRECTDRAWSURFACE7 lpddsprimary = NULL;    // the directdraw primary surface
 LPDIRECTDRAWSURFACE7 lpddsback = NULL;       // the directdraw back surface
 LPDIRECTDRAWPALETTE   lpddpal      = NULL;   // a pointer to the created dd palette
 LPDIRECTDRAWCLIPPER lpddclipper = NULL;      // the directdraw clipper
-PALETTEENTRY          palette[256];          // color palette
-PALETTEENTRY          save_palette[256];     // used to save palettes
 DDSURFACEDESC2 ddsd; // a direct draw surface description structure
 DDBLTFX ddbltfx; // used to fill
 DDSCAPS2 ddscaps; // a direct draw surface capabilities structure
 HRESULT ddrval; // result back from directdraw calls
 DWORD start_clock_count = 0; // used for timing
 
-int pixel_format = 0;                        // global to hold the bits per pixel
 char buffer[80];                             // general printing buffer
 
 /* function */
 
+/*
+  draws the sent text on the sent surface 
+  using color index as the color in the palette
+*/
+int Draw_Text_GDI(char *text, int x,int y,COLORREF color, LPDIRECTDRAWSURFACE7 lpdds) {
+  HDC xdc; // the working dc
 
+  // get the dc from surface
+  if (FAILED(lpdds->GetDC(&xdc)))
+    return(0);
+
+  // set the colors for the text up
+  SetTextColor(xdc,color);
+
+  // set background mode to transparent so black isn't copied
+  SetBkMode(xdc, TRANSPARENT);
+
+  // draw the text a
+  TextOutA(xdc,x,y,text,strlen(text));
+
+  // release the dc
+  lpdds->ReleaseDC(xdc);
+
+  // return success
+  return(1);
+
+}
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   
@@ -139,11 +158,25 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
+    // print shadowed text using GDI
+    int x = rand()%SCREEN_WIDTH;
+    int y = rand()%SCREEN_HEIGHT;
 
-// return success or failure or your own return code here
-return(1);
+    // first print shadow
+    Draw_Text_GDI((char*)"DirectX Working with GDI!", x+4,y+4, 
+                  RGB(64,64,64), lpddsprimary);
 
-} // end Game_Main
+    // now text on top of it
+    Draw_Text_GDI((char*)"DirectX Working with GDI!", x,y, 
+                  RGB(rand()%256,rand()%256,rand()%256), lpddsprimary);
+
+
+    // wait a sec
+    Sleep(10);
+
+    // return success or failure or your own return code here
+    return 1;
+}
 
 /*  
     this is call once after the initial window is created  and
@@ -151,43 +184,36 @@ return(1);
 */
 int Game_Init(void* parms = NULL, int num_parms = 0) {
 
-DDPIXELFORMAT ddpixelformat; // hold the pixel format
-
     // create IDirectDraw instance 7.0 object and test for error
     if (FAILED(DirectDrawCreateEx(NULL, (void**)&lpdd, IID_IDirectDraw7, NULL))) {
         return 0;
     }
 
     // set cooperation to full screen 
-    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, DDSCL_NORMAL))) {
+    if (FAILED(lpdd->SetCooperativeLevel(main_window_handle, 
+                                         DDSCL_FULLSCREEN | DDSCL_EXCLUSIVE | 
+	                                       DDSCL_ALLOWMODEX | DDSCL_ALLOWREBOOT))) {
         return 0;
     }
 
-// clear ddsd and set size
-DDRAW_INIT_STRUCT(ddsd); 
+    if (FAILED(lpdd->SetDisplayMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, 0, 0))) {
+      return 0;
+    }
 
-// enable valid fields
-ddsd.dwFlags = DDSD_CAPS;
+    // clear ddsd and set size
+    DDRAW_INIT_STRUCT(ddsd);
 
-// request primary surface
-ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    // enable valid fields
+    ddsd.dwFlags = DDSD_CAPS;
 
-// create the primary surface
-if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
-   return(0);
+    // request primary surface
+    ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 
-// get pixel format
+    // create the primary surface
+    if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
+      return(0);
 
-// clean out the structure and set it up
-DDRAW_INIT_STRUCT(ddpixelformat);
-
-// get the pixel format
-lpddsprimary->GetPixelFormat(&ddpixelformat);
-
-// set global pixel format
-pixel_format = ddpixelformat.dwRGBBitCount;
-
-// return success or failure or your own return code here
+    // return success or failure or your own return code here
     return 1;
 }
 
@@ -197,6 +223,13 @@ pixel_format = ddpixelformat.dwRGBBitCount;
 */
 int Game_Shutdown(void* parms = NULL, int num_parms = 0) {
     
+   // now the back buffer surface
+   if (lpddpal)
+   {
+     lpddpal->Release();
+     lpddpal = NULL;
+    }
+
 
     // now the primary surface
     if (lpddsprimary) {
@@ -247,10 +280,10 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprevinstance,
   // create the window
   if (!(hwnd = CreateWindowEx((DWORD)NULL,           // extended style
                               WINDOW_CLASS_NAME,    // class
-                              L"Demo7_18",  // title
-                              WS_OVERLAPPED | WS_VISIBLE,
+                              L"Demo7_17",  // title
+                              WS_POPUP | WS_VISIBLE,
                               0,0,          // initial x, y
-                              WINDOW_WIDTH, WINDOW_HEIGHT, // initial width, height   
+                              SCREEN_WIDTH, SCREEN_HEIGHT, // initial width, height   
                               NULL,       // handle to parent
                               NULL,       // handle to menu
                               hinstance,  // histance of this application

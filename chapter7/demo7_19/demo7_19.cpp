@@ -88,8 +88,6 @@ char buffer[80];                             // general printing buffer
 
 /* function */
 
-
-
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   
   PAINTSTRUCT ps;
@@ -129,8 +127,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 /* main game loop */
 int Game_Main(void* parms = NULL, int num_parms = 0) {
    
-DDSURFACEDESC2 ddsd;    // directdraw surface description
-RECT           client;  // used to hold client rectangle
+    DDSURFACEDESC2 ddsd;    // directdraw surface description
+    RECT           client;  // used to hold client rectangle
 
    // make sure this isn't executed again
    if (window_closed) return 0;
@@ -141,83 +139,67 @@ RECT           client;  // used to hold client rectangle
       window_closed = 1;
     }
 
+  // get the window's client rectangle in screen coordinates
+  GetWindowRect(main_window_handle, &client);
 
-// get the window's client rectangle in screen coordinates
-GetWindowRect(main_window_handle, &client);
+  // initialize structure
+  DDRAW_INIT_STRUCT(ddsd);
 
-// initialize structure
-DDRAW_INIT_STRUCT(ddsd);
+  // lock the primary surface
+  lpddsprimary->Lock(NULL,&ddsd, 
+                DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
 
-// lock the primary surface
-lpddsprimary->Lock(NULL,&ddsd, 
-              DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
+  // get video pointer to primary surface
+  // cast to VOID * since we don't know what we are
+  // dealing with yet
+  UCHAR *primary_buffer = (UCHAR *)ddsd.lpSurface;       
 
-// get video pointer to primary surface
-// cast to VOID * since we don't know what we are
-// dealing with yet
-UCHAR *primary_buffer = (UCHAR *)ddsd.lpSurface;       
-
-// what is the color depth?
-if (pixel_format == 32)
-   {
+  // what is the color depth?
+  if (pixel_format == 32) {
     // draw 10 random pixels in 32 bit mode
-    for (int index=0; index<10; index++)
-        {
+    for (int index=0; index<10; index++) {
         int x=rand()%(client.right - client.left) + client.left;
         int y=rand()%(client.bottom - client.top) + client.top;
         DWORD color = _RGB32BIT(0,rand()%256, rand()%256, rand()%256);
         *((DWORD *)(primary_buffer + x*4 + y*ddsd.lPitch)) = color;
-        } // end for index
-    } // end if 24 bit
+      }
+   } else if (pixel_format == 24) {
+      // draw 10 random pixels in 24 bit mode (very rare???)
+      for (int index=0; index<10; index++) {
+          int x=rand()%(client.right - client.left) + client.left;
+          int y=rand()%(client.bottom - client.top) + client.top;
+          ((primary_buffer + x*3 + y*ddsd.lPitch))[0] = rand()%256;
+          ((primary_buffer + x*3 + y*ddsd.lPitch))[1] = rand()%256;
+          ((primary_buffer + x*3 + y*ddsd.lPitch))[2] = rand()%256;
+        }
+    } else if (pixel_format == 16) {
+        // draw 10 random pixels in 16 bit mode
+        for (int index=0; index<10; index++) {
+            int x=rand()%(client.right - client.left) + client.left;
+            int y=rand()%(client.bottom - client.top) + client.top;
+            USHORT color = _RGB16BIT565(rand()%256, rand()%256, rand()%256);
+            *((USHORT *)(primary_buffer + x*2 + y*ddsd.lPitch)) = color;
+          } 
+    } else{
+          // assume 8 bits per pixel
+          // draw 10 random pixels in 8 bit mode
+          for (int index=0; index<10; index++) {
+              int x=rand()%(client.right - client.left) + client.left;
+              int y=rand()%(client.bottom - client.top) + client.top;
+              UCHAR color = rand()%256;
+              primary_buffer[x + y*ddsd.lPitch] = color;
+            } 
+    }
 
-else
-if (pixel_format == 24)
-   {
-    // draw 10 random pixels in 24 bit mode (very rare???)
-    for (int index=0; index<10; index++)
-        {
-        int x=rand()%(client.right - client.left) + client.left;
-        int y=rand()%(client.bottom - client.top) + client.top;
-        ((primary_buffer + x*3 + y*ddsd.lPitch))[0] = rand()%256;
-        ((primary_buffer + x*3 + y*ddsd.lPitch))[1] = rand()%256;
-        ((primary_buffer + x*3 + y*ddsd.lPitch))[2] = rand()%256;
-        } // end for index
-    } // end if 24 bit
-else
+    // unlock primary buffer
+    if (FAILED(lpddsprimary->Unlock(NULL)))
+      return(0);
 
-if (pixel_format == 16)
-    {
-    // draw 10 random pixels in 16 bit mode
-    for (int index=0; index<10; index++)
-        {
-        int x=rand()%(client.right - client.left) + client.left;
-        int y=rand()%(client.bottom - client.top) + client.top;
-        USHORT color = _RGB16BIT565(rand()%256, rand()%256, rand()%256);
-        *((USHORT *)(primary_buffer + x*2 + y*ddsd.lPitch)) = color;
-        } // end for index
-    } // end if 16 bit
-else
-    {// assume 8 bits per pixel
-    // draw 10 random pixels in 8 bit mode
-    for (int index=0; index<10; index++)
-        {
-        int x=rand()%(client.right - client.left) + client.left;
-        int y=rand()%(client.bottom - client.top) + client.top;
-        UCHAR color = rand()%256;
-        primary_buffer[x + y*ddsd.lPitch] = color;
-        } // end for index
-    } // end else
+    // wait a sec
+    Sleep(1);
 
-// unlock primary buffer
-if (FAILED(lpddsprimary->Unlock(NULL)))
-   return(0);
-
-
-// wait a sec
-Sleep(1);
-
-// return success or failure or your own return code here
-return(1);
+    // return success or failure or your own return code here
+    return(1);
 
 } // end Game_Main
 
@@ -227,7 +209,7 @@ return(1);
 */
 int Game_Init(void* parms = NULL, int num_parms = 0) {
 
-DDPIXELFORMAT ddpixelformat; // hold the pixel format
+    DDPIXELFORMAT ddpixelformat; // hold the pixel format
 
     // create IDirectDraw instance 7.0 object and test for error
     if (FAILED(DirectDrawCreateEx(NULL, (void**)&lpdd, IID_IDirectDraw7, NULL))) {
@@ -239,31 +221,31 @@ DDPIXELFORMAT ddpixelformat; // hold the pixel format
         return 0;
     }
 
-// clear ddsd and set size
-DDRAW_INIT_STRUCT(ddsd); 
+    // clear ddsd and set size
+    DDRAW_INIT_STRUCT(ddsd); 
 
-// enable valid fields
-ddsd.dwFlags = DDSD_CAPS;
+    // enable valid fields
+    ddsd.dwFlags = DDSD_CAPS;
 
-// request primary surface
-ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+    // request primary surface
+    ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 
-// create the primary surface
-if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
-   return(0);
+    // create the primary surface
+    if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
+      return(0);
 
-// get pixel format
+    // get pixel format
 
-// clean out the structure and set it up
-DDRAW_INIT_STRUCT(ddpixelformat);
+    // clean out the structure and set it up
+    DDRAW_INIT_STRUCT(ddpixelformat);
 
-// get the pixel format
-lpddsprimary->GetPixelFormat(&ddpixelformat);
+    // get the pixel format
+    lpddsprimary->GetPixelFormat(&ddpixelformat);
 
-// set global pixel format
-pixel_format = ddpixelformat.dwRGBBitCount;
+    // set global pixel format
+    pixel_format = ddpixelformat.dwRGBBitCount;
 
-// return success or failure or your own return code here
+    // return success or failure or your own return code here
     return 1;
 }
 
