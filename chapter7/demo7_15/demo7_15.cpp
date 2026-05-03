@@ -125,6 +125,7 @@ int Blink_Colors(int command, BLINKER_PTR new_light, int id) {
 
    static BLINKER lights[256]; // supports up to 256 blinking lights
    static int initialized = 0; // tracks if function has initialized
+   
    // test if this is the first time function has ran
    if (!initialized) {
       // set initialized
@@ -149,8 +150,11 @@ int Blink_Colors(int command, BLINKER_PTR new_light, int id) {
                lights[index].counter =  0;
                lights[index].state   = -1; // off
 
+               // update bitmap palette entry
+               bitmap.palette[lights[index].color_index] = lights[index].off_color;
+
                // return id to caller
-               return(index);
+               return index;
             }
          }
       } break;
@@ -180,8 +184,13 @@ int Blink_Colors(int command, BLINKER_PTR new_light, int id) {
             lights[id].on_time   = new_light->on_time;
             lights[id].off_time  = new_light->off_time; 
 
-            // return id
-            return(id);
+               // update palette entry
+               if (lights[id].state == -1)
+                  bitmap.palette[lights[id].color_index] = lights[id].off_color;
+               else
+                  bitmap.palette[lights[id].color_index] = lights[id].on_color;
+
+            return id;
          } else {
             return -1; // problem
          }
@@ -200,6 +209,9 @@ int Blink_Colors(int command, BLINKER_PTR new_light, int id) {
 
                   // change states 
                   lights[index].state = -lights[index].state;
+                  
+                  // update color
+                  bitmap.palette[lights[index].color_index] = lights[index].on_color;
                }
             } else if (lights[index].state == 1) {
                // update counter
@@ -209,6 +221,9 @@ int Blink_Colors(int command, BLINKER_PTR new_light, int id) {
 
                   // change states 
                   lights[index].state = -lights[index].state;
+                  
+                  // update color
+                  bitmap.palette[lights[index].color_index] = lights[index].off_color;
                }
             }
          }
@@ -416,7 +431,7 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
    // note this is a good candidate operation to make into a function - hint!
 
    // lock the primary surface
-   // lpddsprimary->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
+   lpddsprimary->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
 
    // get video pointer to primary surfce
    UCHAR *primary_buffer = (UCHAR *)ddsd.lpSurface;       
@@ -452,12 +467,15 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
    }
 
    // now unlock the primary surface
-   // if (FAILED(lpddsprimary->Unlock(NULL)))
-      // return(0);
+   if (FAILED(lpddsprimary->Unlock(NULL)))
+      return(0);
 
    // animate the lights
    Blink_Colors(BLINKER_RUN, NULL, 0);
 
+   // flip pages
+   while (FAILED(lpddsprimary->Flip(NULL, DDFLIP_WAIT)));
+   
    // wait a sec
    Sleep(33);
 
@@ -490,23 +508,35 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     // clear ddsd and set size
     DDRAW_INIT_STRUCT(ddsd);
 
+   // set the backbuffer count field to 1, use 2 for triple buffering
+   ddsd.dwBackBufferCount = 1;
+   
    // enable valid fields
-   ddsd.dwFlags = DDSD_CAPS;
+   ddsd.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 
-   // request primary surface
-   ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+   // request a complex, flippable
+   ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 
    // create the primary surface
    if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
       return(0);
 
+    // now query for attached surface from the primary surface
+
+   // this line is needed by the call
+   ddsd.ddsCaps.dwCaps = DDSCAPS_BACKBUFFER;
+
+   // get the attached back buffer surface
+   if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback)))
+      return(0);
+
    // load the 8-bit image
-   if (!Load_Bitmap_File(&bitmap,(char*)"resource/starshipanim8.bmp"))
+   if (!Load_Bitmap_File(&bitmap,(char*)"../resource/starshipanim8.bmp"))
       return(0);
 
    // clean the surface
    DDraw_Fill_Surface(lpddsprimary,0);
-
+   DDraw_Fill_Surface(lpddsback,0);
 
    // create the blinking lights
 
@@ -524,7 +554,7 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    temp.off_time    = 30;
 
    // make call, note use of C++ call by reference for 2nd parm
-   int red_id = Blink_Colors(BLINKER_ADD, &temp, 0);
+   red_id = Blink_Colors(BLINKER_ADD, &temp, 0);
 
    // now create green light
    temp.color_index = 254;
@@ -534,7 +564,7 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
    temp.off_time    = 90;
 
    // make call, note use of C++ call by reference for 2nd parm
-   int green_id = Blink_Colors(BLINKER_ADD, &temp, 0);
+   green_id = Blink_Colors(BLINKER_ADD, &temp, 0);
 
    // return success or failure or your own return code here
    return 1;
