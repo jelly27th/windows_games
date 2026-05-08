@@ -59,7 +59,7 @@ typedef struct BITMAP_FILE_TAG {
 /* prototypes */
 int DDraw_Fill_Surface(LPDIRECTDRAWSURFACE7 lpdds, int color);
 
-int Draw_Line(int x0, int y0, int x1, int y1, UCHAR color, UCHAR *vb_start, int lpitch);
+int Draw_Line(int x0, int y0, int x1, int y1, DWORD color, UCHAR *vb_start, int lpitch);
 
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)

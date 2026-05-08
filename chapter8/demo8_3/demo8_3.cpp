@@ -1,5 +1,5 @@
 /* 
-  32-bit line clipping program
+  32-bit polyon demo
 */
 
 #define WIN32_LEAN_AND_MEAN  // just say no to MFC
@@ -39,6 +39,7 @@
 
 #define BITMAP_ID 0x4D42 // universal id for a bitmap
 #define MAX_COLORS_PALETTE 256 // maximum colors in 256 color palette
+#define NUM_ASTEROIDS        64
 
 /* basic unsigned types */
 typedef unsigned short USHORT;
@@ -46,13 +47,20 @@ typedef unsigned short WORD;
 typedef unsigned char UCHAR;
 typedef unsigned char BYTE;
 
-// container structure for bitmaps .BMP file
-typedef struct BITMAP_FILE_TAG {
-    BITMAPFILEHEADER bitmapfileheader;  // this contains the bitmapfile header
-    BITMAPINFOHEADER bitmapinfoheader;  // this is all the info including the palette
-    PALETTEENTRY     palette[256];      // we will store the palette here
-    UCHAR            *buffer;           // this is a pointer to the data
-} BITMAP_FILE, *BITMAP_FILE_PTR;
+// a 2D vertex
+typedef struct VERTEX2DI_TYP {
+   int x,y; // the vertex
+} VERTEX2DI, *VERTEX2DI_PTR;
+
+// a 2D polygon
+typedef struct POLYGON2D_TYP {
+        int state;        // state of polygon
+        int num_verts;    // number of vertices
+        int x0,y0;        // position of center of polygon  
+        int xv,yv;        // initial velocity
+        DWORD color;      // could be index or PALETTENTRY
+        VERTEX2DI *vlist; // pointer to vertex list
+ } POLYGON2D, *POLYGON2D_PTR;
 
 /* prototypes */
 int DDraw_Fill_Surface(LPDIRECTDRAWSURFACE7 lpdds, int color);
@@ -64,6 +72,8 @@ int Draw_Clip_Line(int x0,int y0, int x1, int y1,DWORD color,
                     UCHAR *dest_buffer, int lpitch);
 
 int Clip_Line(int &x1,int &y1,int &x2, int &y2);
+
+int Draw_Polygon2D(POLYGON2D_PTR poly, UCHAR *vbuffer, int lpitch);
 
 /* macro */
 #define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
@@ -93,14 +103,48 @@ HRESULT ddrval; // result back from directdraw calls
 DWORD start_clock_count = 0; // used for timing
 
 // global clipping region
-int min_clip_x = ((SCREEN_WIDTH/2) - 100),      // clipping rectangle 
-    max_clip_x = ((SCREEN_WIDTH/2) + 100),
-    min_clip_y = ((SCREEN_HEIGHT/2) - 100),
-    max_clip_y = ((SCREEN_HEIGHT/2) + 100);
+int min_clip_x = 0,      // clipping rectangle 
+    max_clip_x = SCREEN_WIDTH - 1,
+    min_clip_y = 0,
+    max_clip_y = SCREEN_HEIGHT - 1;
 
 char buffer[80];                             // general printing buffer
 
+POLYGON2D asteroids[NUM_ASTEROIDS]; // the asteroids
+
 /* function */
+
+int Draw_Polygon2D(POLYGON2D_PTR poly, UCHAR *vbuffer, int lpitch) {
+
+   // test if the polygon is visible
+   if (poly->state) {
+      int index; // loop index
+
+      // loop thru and draw a line from vertices 1 to n
+      for (index=0; index < poly->num_verts-1; index++) {
+         // draw line from ith to ith+1 vertex
+         Draw_Clip_Line(poly->vlist[index].x+poly->x0, 
+                        poly->vlist[index].y+poly->y0,
+                        poly->vlist[index+1].x+poly->x0, 
+                        poly->vlist[index+1].y+poly->y0,
+                        poly->color,
+                        vbuffer, lpitch);
+      }
+
+      // now close up polygon
+      // draw line from last vertex to 0th
+      Draw_Clip_Line(poly->vlist[0].x+poly->x0, 
+                     poly->vlist[0].y+poly->y0,
+                     poly->vlist[index].x+poly->x0, 
+                     poly->vlist[index].y+poly->y0,
+                     poly->color,
+                     vbuffer, lpitch);
+
+      return 1;
+   } else 
+      return 0;
+
+}
 
 /* plots a single pixel at x,y with color */
 inline int Draw_Pixel(int x, int y, DWORD color, UCHAR *video_buffer, int lpitch)
@@ -551,26 +595,48 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
       window_closed = 1;
     }
 
+   // clear out the back buffer
+   DDraw_Fill_Surface(lpddsback, 0);
 
    DDRAW_INIT_STRUCT(ddsd);
 
    // lock the primary surface
-   lpddsprimary->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
+   lpddsback->Lock(NULL,&ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT,NULL);
 
-   // draw 1000 random lines
-   for (int index=0; index < 1000; index++) {
-      DWORD color = _RGB32BIT(255,rand()%256,rand()%256,rand()%256);
-      Draw_Clip_Line(rand()%SCREEN_WIDTH, rand()%SCREEN_HEIGHT,
-                     rand()%SCREEN_WIDTH, rand()%SCREEN_HEIGHT,
-                     color,
-                     (UCHAR *)ddsd.lpSurface, ddsd.lPitch);
+   // draw all the asteroids
+   for (int curr_index = 0; curr_index < NUM_ASTEROIDS; curr_index++) {
+      // glow asteroids
+      asteroids[curr_index].color = _RGB32BIT(255, rand()%256, rand()%256, rand()%256);
+
+      // do the graphics
+      Draw_Polygon2D(&asteroids[curr_index], (UCHAR *)ddsd.lpSurface, ddsd.lPitch);
+
+      // move the asteroid
+      asteroids[curr_index].x0+=asteroids[curr_index].xv;        
+      asteroids[curr_index].y0+=asteroids[curr_index].yv;           
+
+      // test for out of bounds
+      if (asteroids[curr_index].x0 > SCREEN_WIDTH+100)
+         asteroids[curr_index].x0 = - 100;
+
+      if (asteroids[curr_index].y0 > SCREEN_HEIGHT+100)
+         asteroids[curr_index].y0 = - 100;
+
+      if (asteroids[curr_index].x0 < -100)
+         asteroids[curr_index].x0 = SCREEN_WIDTH+100;
+
+      if (asteroids[curr_index].y0 < -100)
+         asteroids[curr_index].y0 = SCREEN_HEIGHT+100;
 
     }
 
    // now unlock the primary surface
-   if (FAILED(lpddsprimary->Unlock(NULL)))
+   if (FAILED(lpddsback->Unlock(NULL)))
       return(0);
 
+   // perform the flip
+   while (FAILED(lpddsprimary->Flip(NULL, DDFLIP_WAIT)));
+   
    // wait a sec
    Sleep(33);
 
@@ -604,17 +670,58 @@ int Game_Init(void* parms = NULL, int num_parms = 0) {
     DDRAW_INIT_STRUCT(ddsd);
 
    // enable valid fields
-   ddsd.dwFlags = DDSD_CAPS;
+   ddsd.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 
-   // request primary surface
-   ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+   // set the backbuffer count field to 1, use 2 for triple buffering
+   ddsd.dwBackBufferCount = 1;
+
+   // request a complex, flippable
+   ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 
    // create the primary surface
    if (FAILED(lpdd->CreateSurface(&ddsd, &lpddsprimary, NULL)))
       return(0);
 
+   // now query for attached surface from the primary surface
+
+   // this line is needed by the call
+   ddsd.ddsCaps.dwCaps = DDSCAPS_BACKBUFFER;
+
+   // get the attached back buffer surface
+   if (FAILED(lpddsprimary->GetAttachedSurface(&ddsd.ddsCaps, &lpddsback)))
+      return(0);
+
    // clean the surface
    DDraw_Fill_Surface(lpddsprimary,0);
+   DDraw_Fill_Surface(lpddsback, 0 );
+
+   // define points of asteroid
+   VERTEX2DI asteroid_vertices[8] = {33,-3, 
+                                     9,-18, 
+                                     -12,-9, 
+                                     -21,-12, 
+                                     -9,6, 
+                                     -15,15, 
+                                     -3,27, 
+                                     21,21};
+
+   // loop and initialize all asteroids
+   for (int curr_index = 0; curr_index < NUM_ASTEROIDS; curr_index++) {
+
+      // initialize the asteroid
+      asteroids[curr_index].state       = 1;   // turn it on
+      asteroids[curr_index].num_verts   = 8;  
+      asteroids[curr_index].x0          = rand()%SCREEN_WIDTH; // position it
+      asteroids[curr_index].y0          = rand()%SCREEN_HEIGHT;
+      asteroids[curr_index].xv          = -8 + rand()%17;
+      asteroids[curr_index].yv          = -8 + rand()%17;
+      asteroids[curr_index].color       = rand()%256;
+      asteroids[curr_index].vlist       = new VERTEX2DI [asteroids[curr_index].num_verts];
+ 
+      for (int index = 0; index < asteroids[curr_index].num_verts; index++)
+          asteroids[curr_index].vlist[index] = asteroid_vertices[index];
+
+   }
 
    // return success or failure or your own return code here
    return 1;
