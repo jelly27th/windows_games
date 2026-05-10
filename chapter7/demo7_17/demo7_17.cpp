@@ -103,9 +103,8 @@ int Draw_Text_GDI(char *text, int x,int y,COLORREF color, LPDIRECTDRAWSURFACE7 l
 
   // release the dc
   lpdds->ReleaseDC(xdc);
-
-  // return success
-  return(1);
+  
+  return 1;
 
 }
 
