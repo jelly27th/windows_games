@@ -731,16 +731,6 @@ int Game_Main(void* parms = NULL, int num_parms = 0) {
    if (FAILED(lpddsback->Unlock(NULL)))
       return(0);
 
-   // 
-   // palette[1].peGreen+=green_inc;
-
-   // // check if ready to change animation in other direction
-   // if (palette[1].peGreen > 255 || palette[1].peGreen < 16) {
-   //    // invert increment
-   //    green_inc=-green_inc;
-   //    palette[1].peGreen+=green_inc;    
-   // }
-
    // animate green
    green = (object.color >> 8) & 0xFF;
    green += green_inc;
