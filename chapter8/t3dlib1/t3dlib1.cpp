@@ -75,6 +75,7 @@ int                  back_lpitch     = 0;    // memory line pitch for back buffe
 BITMAP_FILE          bitmap8bit;             // a 8 bit bitmap file
 BITMAP_FILE          bitmap16bit;            // a 16 bit bitmap file
 BITMAP_FILE          bitmap24bit;            // a 24 bit bitmap file
+BITMAP_FILE          bitmap;                 // bitmap file
 
 DWORD                start_clock_count = 0;     // used for timing
 int                  windowed_mode     = FALSE; // tracks if dd is windowed or not
@@ -1983,180 +1984,146 @@ lpddpal->SetEntries(0,0,MAX_COLORS_PALETTE,palette);
 return 1;
 } // end Set_Palette
 
-///////////////////////////////////////////////////////////
+/* rotates the color between start and end */
+int Rotate_Colors(int start_index, int end_index) {
 
-int Rotate_Colors(int start_index, int end_index)
-{
-// this function rotates the color between start and end
+  int colors = end_index - start_index + 1;
 
-int colors = end_index - start_index + 1;
+  static PALETTEENTRY work_pal[MAX_COLORS_PALETTE]; // working palette
 
-PALETTEENTRY work_pal[MAX_COLORS_PALETTE]; // working palette
+  // get the color palette
+  for (int i = 0; i < colors; i++) {
+      work_pal[i] = bitmap.palette[start_index + i];
+  }
 
-// get the color palette
-lpddpal->GetEntries(0,start_index,colors,work_pal);
+  // shift the colors
+  PALETTEENTRY last_color = work_pal[colors - 1];
+  for (int i = colors - 1; i > 0; i--) {
+    work_pal[i] = work_pal[i - 1];
+  }
+  work_pal[0] = last_color;
 
-// shift the colors
-lpddpal->SetEntries(0,start_index+1,colors-1,work_pal);
+  // update shadow palette
+  for (int i = 0; i < colors; i++) {
+    bitmap.palette[start_index + i] = work_pal[i];
+  }
 
-// fix up the last color
-lpddpal->SetEntries(0,start_index,1,&work_pal[colors - 1]);
+  return 1;
+}
 
-// update shadow palette
-lpddpal->GetEntries(0,0,MAX_COLORS_PALETTE,palette);
+/* blinks a set of lights */   
+int Blink_Colors(int command, BLINKER_PTR new_light, int id) {
 
-// return success
-return 1;
-
-} // end Rotate_Colors
-
-///////////////////////////////////////////////////////////   
+   static BLINKER lights[256]; // supports up to 256 blinking lights
+   static int initialized = 0; // tracks if function has initialized
    
-int Blink_Colors(int command, BLINKER_PTR new_light, int id)
-{
-// this function blinks a set of lights
+   // test if this is the first time function has ran
+   if (!initialized) {
+      // set initialized
+      initialized = 1;
 
-static BLINKER lights[256]; // supports up to 256 blinking lights
-static int initialized = 0; // tracks if function has initialized
+      // clear out all structures
+      memset((void *)lights,0, sizeof(lights));
+   }
+   // now test what command user is sending
+   switch (command) {
 
-// test if this is the first time function has ran
-if (!initialized)
-   {
-   // set initialized
-   initialized = 1;
+      case BLINKER_ADD: // add a light to the database
+      {
+         // run thru database and find an open light
+         for (int index=0; index < 256; index++) {
+            // is this light available?
+            if (lights[index].state == 0) {
+               // set light up
+               lights[index] = *new_light;
 
-   // clear out all structures
-   memset((void *)lights,0, sizeof(lights));
+               // set internal fields up
+               lights[index].counter =  0;
+               lights[index].state   = -1; // off
 
-   } // end if
+               // update bitmap palette entry
+               bitmap.palette[lights[index].color_index] = lights[index].off_color;
 
-// now test what command user is sending
-switch (command)
-       {
-       case BLINKER_ADD: // add a light to the database
-            {
-            // run thru database and find an open light
-            for (int index=0; index < 256; index++)
-                {
-                // is this light available?
-                if (lights[index].state == 0)
-                   {
-                   // set light up
-                   lights[index] = *new_light;
+               // return id to caller
+               return index;
+            }
+         }
+      } break;
 
-                   // set internal fields up
-                   lights[index].counter =  0;
-                   lights[index].state   = -1; // off
+      case BLINKER_DELETE: // delete the light indicated by id
+      {
+         // delete the light sent in id 
+         if (lights[id].state != 0) {
+            // kill the light
+            memset((void *)&lights[id],0,sizeof(BLINKER));
 
-                   // update palette entry
-                   lpddpal->SetEntries(0,lights[index].color_index,1,&lights[index].off_color);
- 
-                   // return id to caller
-                   return(index);
+            // return id
+            return(id);
 
-                   } // end if
+         } else {
+            return -1; // problem
+         }
+      } break;
 
-                } // end for index
-
-            } break;
-
-       case BLINKER_DELETE: // delete the light indicated by id
-            {
-            // delete the light sent in id 
-            if (lights[id].state != 0)
-               {
-               // kill the light
-               memset((void *)&lights[id],0,sizeof(BLINKER));
-
-               // return id
-               return(id);
- 
-               } // end if
-            else
-                return(-1); // problem
-
-
-            } break;
-
-       case BLINKER_UPDATE: // update the light indicated by id
-            { 
-            // make sure light is active
-            if (lights[id].state != 0)
-               {
-               // update on/off parms only
-               lights[id].on_color  = new_light->on_color; 
-               lights[id].off_color = new_light->off_color;
-               lights[id].on_time   = new_light->on_time;
-               lights[id].off_time  = new_light->off_time; 
+      case BLINKER_UPDATE: // update the light indicated by id
+      { 
+         // make sure light is active
+         if (lights[id].state != 0) {
+            // update on/off parms only
+            lights[id].on_color  = new_light->on_color; 
+            lights[id].off_color = new_light->off_color;
+            lights[id].on_time   = new_light->on_time;
+            lights[id].off_time  = new_light->off_time; 
 
                // update palette entry
                if (lights[id].state == -1)
-                  lpddpal->SetEntries(0,lights[id].color_index,1,&lights[id].off_color);
+                  bitmap.palette[lights[id].color_index] = lights[id].off_color;
                else
-                  lpddpal->SetEntries(0,lights[id].color_index,1,&lights[id].on_color);
+                  bitmap.palette[lights[id].color_index] = lights[id].on_color;
 
-               // return id
-               return(id);
- 
-               } // end if
-            else
-                return(-1); // problem
+            return id;
+         } else {
+            return -1; // problem
+         }
+      } break;
 
-            } break;
+      case BLINKER_RUN: // run the algorithm
+      {
+         // run thru database and process each light
+         for (int index=0; index < 256; index++) {
+            // is this active?
+            if (lights[index].state == -1) {
+               // update counter
+               if (++lights[index].counter >= lights[index].off_time) {
+                  // reset counter
+                  lights[index].counter = 0;
 
-       case BLINKER_RUN: // run the algorithm
-            {
-            // run thru database and process each light
-            for (int index=0; index < 256; index++)
-                {
-                // is this active?
-                if (lights[index].state == -1)
-                   {
-                   // update counter
-                   if (++lights[index].counter >= lights[index].off_time)
-                      {
-                      // reset counter
-                      lights[index].counter = 0;
+                  // change states 
+                  lights[index].state = -lights[index].state;
+                  
+                  // update color
+                  bitmap.palette[lights[index].color_index] = lights[index].on_color;
+               }
+            } else if (lights[index].state == 1) {
+               // update counter
+               if (++lights[index].counter >= lights[index].on_time) {
+                  // reset counter
+                  lights[index].counter = 0;
 
-                      // change states 
-                      lights[index].state = -lights[index].state;               
- 
-                      // update color
-                      lpddpal->SetEntries(0,lights[index].color_index,1,&lights[index].on_color);
- 
-                      } // end if
-                 
-                   } // end if
-                else
-                if (lights[index].state == 1)
-                   {
-                   // update counter
-                   if (++lights[index].counter >= lights[index].on_time)
-                      {
-                      // reset counter
-                      lights[index].counter = 0;
+                  // change states 
+                  lights[index].state = -lights[index].state;
+                  
+                  // update color
+                  bitmap.palette[lights[index].color_index] = lights[index].off_color;
+               }
+            }
+         }
+      } break;
 
-                      // change states 
-                      lights[index].state = -lights[index].state;               
- 
-                      // update color
-                      lpddpal->SetEntries(0,lights[index].color_index,1,&lights[index].off_color);
- 
-                      } // end if
-                   } // end else if
-                 
-                } // end for index
-
-            } break;
-
-       default: break;
-
-       } // end switch
-
-// return success
-return 1;
-
-} // end Blink_Colors
+      default: break;
+   }
+   return 1;
+}
 
 /*
   draws the sent text on the sent surface 
@@ -2269,56 +2236,47 @@ int Write_Error(char *string, ...) {
    return 1;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
-int Create_Bitmap(BITMAP_IMAGE_PTR image, int x, int y, int width, int height, int bpp)
-{
 // this function is used to intialize a bitmap, 8 or 16 bit
+int Create_Bitmap(BITMAP_IMAGE_PTR image, int x, int y, int width, int height, int bpp) {
 
-// allocate the memory
-if (!(image->buffer = (UCHAR *)malloc(width*height*(bpp>>3))))
-   return(0);
+   // allocate the memory
+   if (!(image->buffer = (UCHAR *)malloc(width*height*(bpp>>3))))
+      return(0);
 
-// initialize variables
-image->state     = BITMAP_STATE_ALIVE;
-image->attr      = 0;
-image->width     = width;
-image->height    = height;
-image->bpp       = bpp;
-image->x         = x;
-image->y         = y;
-image->num_bytes = width*height*(bpp>>3);
+   // initialize variables
+   image->state     = BITMAP_STATE_ALIVE;
+   image->attr      = 0;
+   image->width     = width;
+   image->height    = height;
+   image->bpp       = bpp;
+   image->x         = x;
+   image->y         = y;
+   image->num_bytes = width*height*(bpp>>3);
 
-// clear memory out
-memset(image->buffer,0,width*height*(bpp>>3));
-
-// return success
-return 1;
-
-} // end Create_Bitmap
-
-///////////////////////////////////////////////////////////////////////////////
-
-int Destroy_Bitmap(BITMAP_IMAGE_PTR image)
-{
-// this function releases the memory associated with a bitmap
-
-if (image && image->buffer)
-   {
-   // free memory and reset vars
-   free(image->buffer);
-
-   // set all vars in structure to 0
-   memset(image,0,sizeof(BITMAP_IMAGE));
+   // clear memory out
+   memset(image->buffer,0,width*height*(bpp>>3));
 
    // return success
    return 1;
 
-   } // end if
-else  // invalid entry pointer of the object wasn't initialized
-   return(0);
+}
 
-} // end Destroy_Bitmap
+// this function releases the memory associated with a bitmap
+int Destroy_Bitmap(BITMAP_IMAGE_PTR image) {
+
+   if (image && image->buffer) {
+      // free memory and reset vars
+      free(image->buffer);
+
+      // set all vars in structure to 0
+      memset(image,0,sizeof(BITMAP_IMAGE));
+
+      // return success
+      return 1;
+   } else  // invalid entry pointer of the object wasn't initialized
+      return 0;
+
+}
 
 ///////////////////////////////////////////////////////////
 
