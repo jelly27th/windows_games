@@ -1,6 +1,4 @@
 // T3DLIB1.CPP - Game Engine Part I
- 
-// INCLUDES ///////////////////////////////////////////////
 
 #define WIN32_LEAN_AND_MEAN  
 
@@ -34,23 +32,14 @@
 #include <sys/timeb.h>
 #include <time.h>
 
-
 #include <ddraw.h>    // directX includes
 #include "T3DLIB1.H"
 
-// DEFINES ////////////////////////////////////////////////
-
-// TYPES //////////////////////////////////////////////////
-
-// PROTOTYPES /////////////////////////////////////////////
-
-// EXTERNALS /////////////////////////////////////////////
-
+/* externals */
 extern HWND main_window_handle; // save the window handle
 extern HINSTANCE main_instance; // save the instance
 
-// GLOBALS ////////////////////////////////////////////////
-
+/* globals*/
 FILE *fp_error                    = NULL; // general error file
 char error_filename[80];                  // error file name
 
@@ -101,11 +90,9 @@ int window_client_y0   = 0;   // for windowed mode directdraw operations
 float cos_look[361]; // 1 extra element so we can store 0-360 inclusive
 float sin_look[361];
 
+/* function */
 
-// FUNCTIONS //////////////////////////////////////////////
-
-inline void Mem_Set_QUAD(void *dest, UINT data, int count)
-{
+inline void Mem_Set_QUAD(void *dest, UINT data, int count) {
 // this function fills or sets unsigned 32-bit aligned memory
 // count is number of quads
 
@@ -921,221 +908,148 @@ return(0);
 
 } // end Collision_BOBS
 
-//////////////////////////////////////////////////////////
-
-int DDraw_Init(int width, int height, int bpp, int windowed)
-{
 // this function initializes directdraw
-int index; // looping variable
+int DDraw_Init(int width, int height, int bpp, int windowed) {
 
-// create IDirectDraw interface 7.0 object and test for error
-if (FAILED(DirectDrawCreateEx(NULL, (void **)&lpdd, IID_IDirectDraw7, NULL)))
-   return(0);
+   int index; // looping variable
 
-// based on windowed or fullscreen set coorperation level
-if (windowed)
-   {
-   // set cooperation level to windowed mode 
-   if (FAILED(lpdd->SetCooperativeLevel(main_window_handle,DDSCL_NORMAL)))
-       return(0);
-
-   } // end if
-else
-   {
-   // set cooperation level to fullscreen mode 
-   if (FAILED(lpdd->SetCooperativeLevel(main_window_handle,
-              DDSCL_ALLOWMODEX | DDSCL_FULLSCREEN | 
-              DDSCL_EXCLUSIVE | DDSCL_ALLOWREBOOT | DDSCL_MULTITHREADED )))
-       return(0);
-
-   // set the display mode
-   if (FAILED(lpdd->SetDisplayMode(width,height,bpp,0,0)))
+   // create IDirectDraw interface 7.0 object and test for error
+   if (FAILED(DirectDrawCreateEx(NULL, (void **)&lpdd, IID_IDirectDraw7, NULL)))
       return(0);
 
-   } // end else
+   // based on windowed or fullscreen set coorperation level
+   if (windowed) {
+      // set cooperation level to windowed mode 
+      if (FAILED(lpdd->SetCooperativeLevel(main_window_handle,DDSCL_NORMAL)))
+         return(0);
+   } else {
+      // set cooperation level to fullscreen mode 
+      if (FAILED(lpdd->SetCooperativeLevel(main_window_handle,
+               DDSCL_ALLOWMODEX | DDSCL_FULLSCREEN | 
+               DDSCL_EXCLUSIVE | DDSCL_ALLOWREBOOT | DDSCL_MULTITHREADED )))
+         return(0);
 
-// set globals
-screen_height   = height;
-screen_width    = width;
-screen_bpp      = bpp;
-screen_windowed = windowed;
+      // set the display mode
+      if (FAILED(lpdd->SetDisplayMode(width,height,bpp,0,0)))
+         return(0);
 
-// Create the primary surface
-memset(&ddsd,0,sizeof(ddsd));
-ddsd.dwSize = sizeof(ddsd);
+   }
 
-// we need to let dd know that we want a complex 
-// flippable surface structure, set flags for that
-if (!screen_windowed)
-   {
-   // fullscreen mode
-   ddsd.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
-   ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_FLIP | DDSCAPS_COMPLEX;
-   
-   // set the backbuffer count to 0 for windowed mode
-   // 1 for fullscreen mode, 2 for triple buffering
-   ddsd.dwBackBufferCount = 1;
-   } // end if
-else
-   {
-   // windowed mode
-   ddsd.dwFlags = DDSD_CAPS;
-   ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+   // set globals
+   screen_height   = height;
+   screen_width    = width;
+   screen_bpp      = bpp;
+   screen_windowed = windowed;
 
-   // set the backbuffer count to 0 for windowed mode
-   // 1 for fullscreen mode, 2 for triple buffering
-   ddsd.dwBackBufferCount = 0;
-   } // end else
+   // Create the primary surface
+   memset(&ddsd,0,sizeof(ddsd));
+   ddsd.dwSize = sizeof(ddsd);
 
-// create the primary surface
-lpdd->CreateSurface(&ddsd,&lpddsprimary,NULL);
+   // we need to let dd know that we want a complex 
+   // flippable surface structure, set flags for that
+   if (!screen_windowed) {
+      // fullscreen mode
+      ddsd.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
+      ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_FLIP | DDSCAPS_COMPLEX;
+      
+      // set the backbuffer count to 0 for windowed mode
+      // 1 for fullscreen mode, 2 for triple buffering
+      ddsd.dwBackBufferCount = 1;
+   } else {
+      // windowed mode
+      ddsd.dwFlags = DDSD_CAPS;
+      ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 
-// get the pixel format of the primary surface
-DDPIXELFORMAT ddpf; // used to get pixel format
+      // set the backbuffer count to 0 for windowed mode
+      // 1 for fullscreen mode, 2 for triple buffering
+      ddsd.dwBackBufferCount = 0;
+   }
 
-// initialize structure
-DDRAW_INIT_STRUCT(ddpf);
+   // create the primary surface
+   lpdd->CreateSurface(&ddsd,&lpddsprimary,NULL);
 
-// query the format from primary surface
-lpddsprimary->GetPixelFormat(&ddpf);
+   // get the pixel format of the primary surface
+   DDPIXELFORMAT ddpf; // used to get pixel format
 
-// based on masks determine if system is 5.6.5 or 5.5.5
-//RGB Masks for 5.6.5 mode
-//DDPF_RGB  16 R: 0x0000F800  
-//             G: 0x000007E0  
-//             B: 0x0000001F  
+   // initialize structure
+   DDRAW_INIT_STRUCT(ddpf);
 
-//RGB Masks for 5.5.5 mode
-//DDPF_RGB  16 R: 0x00007C00  
-//             G: 0x000003E0  
-//             B: 0x0000001F  
-// test for 6 bit green mask)
-//if (ddpf.dwGBitMask == 0x000007E0)
-//   dd_pixel_format = DD_PIXEL_FORMAT565;
+   // query the format from primary surface
+   lpddsprimary->GetPixelFormat(&ddpf);
 
-// use number of bits, better method
-dd_pixel_format = ddpf.dwRGBBitCount;
+   // based on masks determine if system is 5.6.5 or 5.5.5
+   //RGB Masks for 5.6.5 mode
+   //DDPF_RGB  16 R: 0x0000F800  
+   //             G: 0x000007E0  
+   //             B: 0x0000001F  
 
-Write_Error("\npixel format = %d",dd_pixel_format);
+   //RGB Masks for 5.5.5 mode
+   //DDPF_RGB  16 R: 0x00007C00  
+   //             G: 0x000003E0  
+   //             B: 0x0000001F  
+   // test for 6 bit green mask)
+   //if (ddpf.dwGBitMask == 0x000007E0)
+   //   dd_pixel_format = DD_PIXEL_FORMAT565;
 
-// set up conversion macros, so you don't have to test which one to use
-if (dd_pixel_format == DD_PIXEL_FORMAT555)
-   {
-   RGB16Bit = RGB16Bit555;
-   Write_Error("\npixel format = 5.5.5");
-   } // end if
-else
-   {
-   RGB16Bit = RGB16Bit565;
-   Write_Error("\npixel format = 5.6.5");
-   } // end else
+   // use number of bits, better method
+   dd_pixel_format = ddpf.dwRGBBitCount;
 
-// only need a backbuffer for fullscreen modes
-if (!screen_windowed)
-   {
-   // query for the backbuffer i.e the secondary surface
-   ddscaps.dwCaps = DDSCAPS_BACKBUFFER;
+   Write_Error("\npixel format = %d",dd_pixel_format);
 
-   if (FAILED(lpddsprimary->GetAttachedSurface(&ddscaps,&lpddsback)))
-      return(0);
+   // only need a backbuffer for fullscreen modes
+   if (!screen_windowed) {
+      // query for the backbuffer i.e the secondary surface
+      ddscaps.dwCaps = DDSCAPS_BACKBUFFER;
 
-   } // end if
-else
-   {
-   // must be windowed, so create a double buffer that will be blitted
-   // rather than flipped as in full screen mode
-   lpddsback = DDraw_Create_Surface(width, height); // int mem_flags, USHORT color_key_flag);
+      if (FAILED(lpddsprimary->GetAttachedSurface(&ddscaps,&lpddsback)))
+         return(0);
+   } else {
+      // must be windowed, so create a double buffer that will be blitted
+      // rather than flipped as in full screen mode
+      lpddsback = DDraw_Create_Surface(width, height); // int mem_flags, USHORT color_key_flag);
+   }
 
-   } // end else
+   // clear out both primary and secondary surfaces
+   if (screen_windowed) {
+      // only clear backbuffer
+      DDraw_Fill_Surface(lpddsback,0);
+   } else {
+      // fullscreen, simply clear everything
+      DDraw_Fill_Surface(lpddsprimary,0);
+      DDraw_Fill_Surface(lpddsback,0);
+   }
 
-// create a palette only if 8bit mode
-if (screen_bpp==DD_PIXEL_FORMAT8)
-{
-// create and attach palette
-// clear all entries, defensive programming
-memset(palette,0,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
+   // set software algorithmic clipping region
+   min_clip_x = 0;
+   max_clip_x = screen_width - 1;
+   min_clip_y = 0;
+   max_clip_y = screen_height - 1;
 
-// load a pre-made "good" palette off disk
-Load_Palette_From_File(DEFAULT_PALETTE_FILE, palette);
+   // setup backbuffer clipper always
+   RECT screen_rect = {0,0,screen_width,screen_height};
+   lpddclipper = DDraw_Attach_Clipper(lpddsback,1,&screen_rect);
 
-// load and attach the palette, test for windowed mode
-if (screen_windowed)
-   {
-   // in windowed mode, so the first 10 and last 10 entries have
-   // to be slightly modified as does the call to createpalette
-   // reset the peFlags bit to PC_EXPLICIT for the "windows" colors
-   for (index=0; index < 10; index++)
-       palette[index].peFlags = palette[index+246].peFlags = PC_EXPLICIT;         
+   // set up windowed mode clipper
+   if (screen_windowed) {
+      // set windowed clipper
+      if (FAILED(lpdd->CreateClipper(0,&lpddclipperwin,NULL)))
+         return(0);
 
-   // now create the palette object, but disable access to all 256 entries
-   if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT | DDPCAPS_INITIALIZE,
-                                  palette,&lpddpal,NULL)))
-   return(0);
+      if (FAILED(lpddclipperwin->SetHWnd(0, main_window_handle)))
+         return(0);
 
-   } // end 
-else
-   {
-   // in fullscreen mode, so simple create the palette with the default palette
-   // and fill in all 256 entries
-   if (FAILED(lpdd->CreatePalette(DDPCAPS_8BIT | DDPCAPS_INITIALIZE | DDPCAPS_ALLOW256,
-                                  palette,&lpddpal,NULL)))
-      return(0);
+      if (FAILED(lpddsprimary->SetClipper(lpddclipperwin)))
+         return(0);
+   }
 
-   } // end if
+   // return success
+   return 1;
 
-// now attach the palette to the primary surface
-if (FAILED(lpddsprimary->SetPalette(lpddpal)))
-   return(0);
+}
 
-} // end if attach palette for 8bit mode
-
-// clear out both primary and secondary surfaces
-if (screen_windowed)
-   {
-   // only clear backbuffer
-   DDraw_Fill_Surface(lpddsback,0);
-   } // end if
-else
-   {
-   // fullscreen, simply clear everything
-   DDraw_Fill_Surface(lpddsprimary,0);
-   DDraw_Fill_Surface(lpddsback,0);
-   } // end else
-
-// set software algorithmic clipping region
-min_clip_x = 0;
-max_clip_x = screen_width - 1;
-min_clip_y = 0;
-max_clip_y = screen_height - 1;
-
-// setup backbuffer clipper always
-RECT screen_rect = {0,0,screen_width,screen_height};
-lpddclipper = DDraw_Attach_Clipper(lpddsback,1,&screen_rect);
-
-// set up windowed mode clipper
-if (screen_windowed)
-   {
-   // set windowed clipper
-   if (FAILED(lpdd->CreateClipper(0,&lpddclipperwin,NULL)))
-       return(0);
-
-   if (FAILED(lpddclipperwin->SetHWnd(0, main_window_handle)))
-       return(0);
-
-   if (FAILED(lpddsprimary->SetClipper(lpddclipperwin)))
-       return(0);
-   } // end if screen windowed
-
-// return success
-return 1;
-
-} // end DDraw_Init
-
-///////////////////////////////////////////////////////////
-
+// this function release all the resources directdraw
+// allocated, mainly to com objects
 int DDraw_Shutdown(void) {
-   // this function release all the resources directdraw
-   // allocated, mainly to com objects
 
    // release the clippers first
    if (lpddclipper)
@@ -1896,94 +1810,6 @@ int Draw_Rectangle(int x1, int y1, int x2, int y2, int color,
    return 1;
 }
 
-///////////////////////////////////////////////////////////
-   
-int Load_Palette_From_File(char *filename, LPPALETTEENTRY palette)
-{
-// this function loads a palette from disk into a palette
-// structure, but does not set the pallette
-
-FILE *fp_file; // working file
-
-// try and open file
-if ((fp_file = fopen(filename,"r"))==NULL)
-   return(0);
-
-// read in all 256 colors RGBF
-for (int index=0; index<MAX_COLORS_PALETTE; index++)
-    {
-    // read the next entry in
-    fscanf(fp_file,"%d %d %d %d",&palette[index].peRed,
-                                 &palette[index].peGreen,
-                                 &palette[index].peBlue,                                
-                                 &palette[index].peFlags);
-    } // end for index
-
-// close the file
-fclose(fp_file);
-
-// return success
-return 1;
-} // end Load_Palette_From_Disk
-
-///////////////////////////////////////////////////////////   
-   
-int Save_Palette_To_File(char *filename, LPPALETTEENTRY palette)
-{
-// this function saves a palette to disk
-
-FILE *fp_file; // working file
-
-// try and open file
-if ((fp_file = fopen(filename,"w"))==NULL)
-   return(0);
-
-// write in all 256 colors RGBF
-for (int index=0; index<MAX_COLORS_PALETTE; index++)
-    {
-    // read the next entry in
-    fprintf(fp_file,"\n%d %d %d %d",palette[index].peRed,
-                                    palette[index].peGreen,
-                                    palette[index].peBlue,                                
-                                    palette[index].peFlags);
-    } // end for index
-
-// close the file
-fclose(fp_file);
-
-// return success
-return 1;
-
-} // end Save_Palette_To_Disk
-
-///////////////////////////////////////////////////////////
-
-int Save_Palette(LPPALETTEENTRY sav_palette)
-{
-// this function saves the current palette 
-
-memcpy(sav_palette, palette,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
-
-// return success
-return 1;
-} // end Save_Palette
-
-///////////////////////////////////////////////////////////   
-   
-int Set_Palette(LPPALETTEENTRY set_palette)
-{
-// this function writes the sent palette
-
-// first save the new palette in shadow
-memcpy(palette, set_palette,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
-
-// now set the new palette
-lpddpal->SetEntries(0,0,MAX_COLORS_PALETTE,palette);
-
-// return success
-return 1;
-} // end Set_Palette
-
 /* rotates the color between start and end */
 int Rotate_Colors(int start_index, int end_index) {
 
@@ -2278,13 +2104,11 @@ int Destroy_Bitmap(BITMAP_IMAGE_PTR image) {
 
 }
 
-///////////////////////////////////////////////////////////
-
-int Draw_Bitmap(BITMAP_IMAGE_PTR source_bitmap,UCHAR *dest_buffer, int lpitch, int transparent)
-{
 // this function draws the bitmap onto the destination memory surface
 // if transparent is 1 then color 0 (8bit) or 0.0.0 (16bit) will be transparent
 // note this function does NOT clip, so be carefull!!!
+int Draw_Bitmap(BITMAP_IMAGE_PTR source_bitmap,UCHAR *dest_buffer, int lpitch, int transparent)
+{
 
 // test if this bitmap is loaded
 if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
@@ -3606,792 +3430,472 @@ return(0);
 
 } // end Color_Scan16
 
-////////////////////////////////////////////////////////////////
-
+/* extracts a bitmap out of a bitmap file */
 int Scan_Image_Bitmap(BITMAP_FILE_PTR bitmap,     // bitmap file to scan image data from
                       LPDIRECTDRAWSURFACE7 lpdds, // surface to hold data
-                      int cx,int cy)              // cell to scan image from
+                      int cx, int cy)             // cell to scan image from
 {
-// this function extracts a bitmap out of a bitmap file
+   DDSURFACEDESC2 ddsd = {0};  // direct draw surface description
+   ddsd.dwSize = sizeof(ddsd);
+    
+   if (FAILED(lpdds->Lock(NULL, &ddsd, DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR, NULL))) {
+        return 0;
+   }
+    
+    int cell_width = ddsd.dwWidth;
+    int cell_height = ddsd.dwHeight;
+    int bmp_width = bitmap->bitmapinfoheader.biWidth;
+    int bmp_bpp = bitmap->bitmapinfoheader.biBitCount;
+    
+    // compute position to start scanning bits from
+    int start_x = cx * (cell_width + 1) + 1;
+    int start_y = cy * (cell_height + 1) + 1;
+    
+    // assign a pointer to the memory surface for manipulation
+    UCHAR* dest_ptr = (UCHAR*)ddsd.lpSurface;
+    
+    if (bmp_bpp == 8) {
+        // iterate thru each scanline and copy bitmap
+        for (int y = 0; y < cell_height; y++) {
+            for (int x = 0; x < cell_width; x++) {
+                int src_x = start_x + x;
+                int src_y = start_y + y;
+                
+                // 8-bit index
+                UCHAR color_index = bitmap->buffer[src_y * bmp_width + src_x];
+                
+                // Retrieve colors from the color palette
+                PALETTEENTRY color = bitmap->palette[color_index];
+                
+                int dst_offset = y * ddsd.lPitch + x * 4;
+                
+                dest_ptr[dst_offset] = color.peBlue;      // B
+                dest_ptr[dst_offset + 1] = color.peGreen; // G
+                dest_ptr[dst_offset + 2] = color.peRed;   // R
+                
+                // Alpha: If the index is 0 and the color is pure black, 
+                // it is transparent
+                if (color_index == 0 && color.peRed == 0 && 
+                    color.peGreen == 0 && color.peBlue == 0) {
+                    dest_ptr[dst_offset + 3] = 0;
+                } else {
+                    dest_ptr[dst_offset + 3] = 255;
+                }
+            }
+        }
+    }
+    else {
+        lpdds->Unlock(NULL);
+        return 0;
+    }
+    
+    lpdds->Unlock(NULL);
+    return 1;
 
-UCHAR *source_ptr,   // working pointers
-      *dest_ptr;
+}
 
-DDSURFACEDESC2 ddsd;  //  direct draw surface description 
-
-// get the addr to destination surface memory
-
-// set size of the structure
-ddsd.dwSize = sizeof(ddsd);
-
-// lock the display surface
-lpdds->Lock(NULL,
-            &ddsd,
-            DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR,
-            NULL);
-
-// compute position to start scanning bits from
-cx = cx*(ddsd.dwWidth+1) + 1;
-cy = cy*(ddsd.dwHeight+1) + 1;
-  
-// extract bitmap data
-source_ptr = bitmap->buffer + cy*bitmap->bitmapinfoheader.biWidth+cx;
-
-// assign a pointer to the memory surface for manipulation
-dest_ptr = (UCHAR *)ddsd.lpSurface;
-
-// iterate thru each scanline and copy bitmap
-for (int index_y=0; index_y < ddsd.dwHeight; index_y++)
-    {
-    // copy next line of data to destination
-    memcpy(dest_ptr, source_ptr, ddsd.dwWidth);
-
-    // advance pointers
-    dest_ptr   += (ddsd.lPitch);
-    source_ptr += bitmap->bitmapinfoheader.biWidth;
-    } // end for index_y
-
-// unlock the surface 
-lpdds->Unlock(NULL);
-
-// return success
-return 1;
-
-} // end Scan_Image_Bitmap
-
-//////////////////////////////////////////////////////////////////////////////
-
+/* draws a triangle that has a flat top */
 void Draw_Top_Tri(int x1,int y1, 
                   int x2,int y2, 
                   int x3,int y3,
                   int color, 
                   UCHAR *dest_buffer, int mempitch)
 {
-// this function draws a triangle that has a flat top
 
-float dx_right,    // the dx/dy ratio of the right edge of line
-      dx_left,     // the dx/dy ratio of the left edge of line
-      xs,xe,       // the starting and ending points of the edges
-      height;      // the height of the triangle
+   float dx_right,    // the dx/dy ratio of the right edge of line
+         dx_left,     // the dx/dy ratio of the left edge of line
+         xs,xe,       // the starting and ending points of the edges
+         height;      // the height of the triangle
 
-int temp_x,        // used during sorting as temps
-    temp_y,
-    right,         // used by clipping
-    left;
+   int temp_x,        // used during sorting as temps
+      temp_y,
+      right,         // used by clipping
+      left;
 
-// destination address of next scanline
-UCHAR  *dest_addr = NULL;
+   // destination address of next scanline
+   UCHAR  *dest_addr = NULL;
 
-// test order of x1 and x2
-if (x2 < x1)
-   {
-   temp_x = x2;
-   x2     = x1;
-   x1     = temp_x;
-   } // end if swap
+   // test order of x1 and x2
+   if (x2 < x1) {
+      temp_x = x2;
+      x2     = x1;
+      x1     = temp_x;
+   }
 
-// compute delta's
-height = y3-y1;
+   // compute delta's
+   height = y3-y1;
 
-dx_left  = (x3-x1)/height;
-dx_right = (x3-x2)/height;
+   dx_left  = (x3-x1)/height;
+   dx_right = (x3-x2)/height;
 
-// set starting points
-xs = (float)x1;
-xe = (float)x2+(float)0.5;
+   // set starting points
+   xs = (float)x1;
+   xe = (float)x2+(float)0.5;
 
-// perform y clipping
-if (y1 < min_clip_y)
-   {
-   // compute new xs and ys
-   xs = xs+dx_left*(float)(-y1+min_clip_y);
-   xe = xe+dx_right*(float)(-y1+min_clip_y);
+   // perform y clipping
+   if (y1 < min_clip_y) {
+      // compute new xs and ys
+      xs = xs+dx_left*(float)(-y1+min_clip_y);
+      xe = xe+dx_right*(float)(-y1+min_clip_y);
 
-   // reset y1
-   y1=min_clip_y;
+      // reset y1
+      y1=min_clip_y;
+   }
 
-   } // end if top is off screen
+   if (y3>max_clip_y)
+      y3=max_clip_y;
 
-if (y3>max_clip_y)
-   y3=max_clip_y;
+   // compute starting address in video memory
+   dest_addr = dest_buffer+y1*mempitch;
 
-// compute starting address in video memory
-dest_addr = dest_buffer+y1*mempitch;
+   // test if x clipping is needed
+   if (x1>=min_clip_x && x1<=max_clip_x &&
+      x2>=min_clip_x && x2<=max_clip_x &&
+      x3>=min_clip_x && x3<=max_clip_x) {
+      // draw the triangle
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
 
-// test if x clipping is needed
-if (x1>=min_clip_x && x1<=max_clip_x &&
-    x2>=min_clip_x && x2<=max_clip_x &&
-    x3>=min_clip_x && x3<=max_clip_x)
-    {
-    // draw the triangle
-    for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-        {
-        memset((UCHAR *)dest_addr+(unsigned int)xs,
-                color,(unsigned int)(xe-xs+1));
+         int start_x = xs;
+         int end_x   = xe;
+         int width = end_x - start_x + 1;
+      
+         if (width > 0) {
 
-        // adjust starting point and ending point
-        xs+=dx_left;
-        xe+=dx_right;
+            UCHAR *line_ptr = dest_addr + start_x * 4;
+            UCHAR *color_bytes = (UCHAR *)&color;
+            
+            for (int i = 0; i < width; i++) {
+                  line_ptr[0] = color_bytes[0];  // blue
+                  line_ptr[1] = color_bytes[1];  // green
+                  line_ptr[2] = color_bytes[2];  // red
+                  line_ptr[3] = color_bytes[3];  // Alpha
+                  line_ptr += 4;
+            }
+         }
 
-        } // end for
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
 
-    } // end if no x clipping needed
-else
-   {
-   // clip x axis with slower version
+      }
 
-   // draw the triangle
-   for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-       {
-       // do x clip
-       left  = (int)xs;
-       right = (int)xe;
+   } else {
+      // clip x axis with slower version
 
-       // adjust starting point and ending point
-       xs+=dx_left;
-       xe+=dx_right;
+      // draw the triangle
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
+         // do x clip
+         left  = (int)xs;
+         right = (int)xe;
 
-       // clip line
-       if (left < min_clip_x)
-          {
-          left = min_clip_x;
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
 
-          if (right < min_clip_x)
-             continue;
-          }
+         // clip line
+         if (left < min_clip_x) {
+            left = min_clip_x;
 
-       if (right > max_clip_x)
-          {
-          right = max_clip_x;
+            if (right < min_clip_x)
+               continue;
+         }
 
-          if (left > max_clip_x)
-             continue;
-          }
+         if (right > max_clip_x) {
+            right = max_clip_x;
 
-       memset((UCHAR  *)dest_addr+(unsigned int)left,
-              color,(unsigned int)(right-left+1));
+            if (left > max_clip_x)
+               continue;
+         }
 
-       } // end for
+         int pixel_count = right - left + 1;
+         if (pixel_count > 0) {
+            UCHAR *pixel_ptr = dest_addr + left * 4; 
+            
+            for (int i = 0; i < pixel_count; i++) {
+                  pixel_ptr[0] = (color >> 0) & 0xFF;  // blue
+                  pixel_ptr[1] = (color >> 8) & 0xFF;  // green
+                  pixel_ptr[2] = (color >> 16) & 0xFF;  // red
+                  pixel_ptr[3] = (color >> 24) & 0xFF;  // Alpha
+                  pixel_ptr += 4;
+            }
+         }
+      }
 
-   } // end else x clipping needed
+   }
 
-} // end Draw_Top_Tri
+}
 
-/////////////////////////////////////////////////////////////////////////////
-
+/* draws a triangle that has a flat bottom */
 void Draw_Bottom_Tri(int x1,int y1, 
                      int x2,int y2, 
                      int x3,int y3,
                      int color,
                      UCHAR *dest_buffer, int mempitch)
 {
-// this function draws a triangle that has a flat bottom
-
-float dx_right,    // the dx/dy ratio of the right edge of line
-      dx_left,     // the dx/dy ratio of the left edge of line
-      xs,xe,       // the starting and ending points of the edges
-      height;      // the height of the triangle
-
-int temp_x,        // used during sorting as temps
-    temp_y,
-    right,         // used by clipping
-    left;
 
-// destination address of next scanline
-UCHAR  *dest_addr;
-
-// test order of x1 and x2
-if (x3 < x2)
-   {
-   temp_x = x2;
-   x2     = x3;
-   x3     = temp_x;
-   } // end if swap
-
-// compute delta's
-height = y3-y1;
-
-dx_left  = (x2-x1)/height;
-dx_right = (x3-x1)/height;
-
-// set starting points
-xs = (float)x1;
-xe = (float)x1; // +(float)0.5;
-
-// perform y clipping
-if (y1<min_clip_y)
-   {
-   // compute new xs and ys
-   xs = xs+dx_left*(float)(-y1+min_clip_y);
-   xe = xe+dx_right*(float)(-y1+min_clip_y);
-
-   // reset y1
-   y1=min_clip_y;
-
-   } // end if top is off screen
-
-if (y3>max_clip_y)
-   y3=max_clip_y;
-
-// compute starting address in video memory
-dest_addr = dest_buffer+y1*mempitch;
-
-// test if x clipping is needed
-if (x1>=min_clip_x && x1<=max_clip_x &&
-    x2>=min_clip_x && x2<=max_clip_x &&
-    x3>=min_clip_x && x3<=max_clip_x)
-    {
-    // draw the triangle
-    for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-        {
-        memset((UCHAR  *)dest_addr+(unsigned int)xs,
-                color,(unsigned int)(xe-xs+1));
-
-        // adjust starting point and ending point
-        xs+=dx_left;
-        xe+=dx_right;
-
-        } // end for
-
-    } // end if no x clipping needed
-else
-   {
-   // clip x axis with slower version
-
-   // draw the triangle
-
-   for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-       {
-       // do x clip
-       left  = (int)xs;
-       right = (int)xe;
-
-       // adjust starting point and ending point
-       xs+=dx_left;
-       xe+=dx_right;
-
-       // clip line
-       if (left < min_clip_x)
-          {
-          left = min_clip_x;
-
-          if (right < min_clip_x)
-             continue;
-          }
-
-       if (right > max_clip_x)
-          {
-          right = max_clip_x;
-
-          if (left > max_clip_x)
-             continue;
-          }
-
-       memset((UCHAR  *)dest_addr+(unsigned int)left,
-              color,(unsigned int)(right-left+1));
-
-       } // end for
-
-   } // end else x clipping needed
-
-} // end Draw_Bottom_Tri
-
-///////////////////////////////////////////////////////////////////////////////
-
-void Draw_Top_Tri16(int x1,int y1, 
-                    int x2,int y2, 
-                    int x3,int y3,
-                    int color, 
-                    UCHAR *_dest_buffer, int mempitch)
-{
-// this function draws a triangle that has a flat top
-
-float dx_right,    // the dx/dy ratio of the right edge of line
-      dx_left,     // the dx/dy ratio of the left edge of line
-      xs,xe,       // the starting and ending points of the edges
-      height;      // the height of the triangle
-
-int temp_x,        // used during sorting as temps
-    temp_y,
-    right,         // used by clipping
-    left;
-
-// cast dest buffer to ushort
-USHORT *dest_buffer = (USHORT *)_dest_buffer;
-
-// destination address of next scanline
-USHORT  *dest_addr = NULL;
-
-// recompute mempitch in 16-bit words
-mempitch = (mempitch >> 1);
-
-// test order of x1 and x2
-if (x2 < x1)
-   {
-   temp_x = x2;
-   x2     = x1;
-   x1     = temp_x;
-   } // end if swap
-
-// compute delta's
-height = y3-y1;
-
-dx_left  = (x3-x1)/height;
-dx_right = (x3-x2)/height;
-
-// set starting points
-xs = (float)x1;
-xe = (float)x2+(float)0.5;
-
-// perform y clipping
-if (y1 < min_clip_y)
-   {
-   // compute new xs and ys
-   xs = xs+dx_left*(float)(-y1+min_clip_y);
-   xe = xe+dx_right*(float)(-y1+min_clip_y);
-
-   // reset y1
-   y1=min_clip_y;
-
-   } // end if top is off screen
-
-if (y3>max_clip_y)
-   y3=max_clip_y;
-
-// compute starting address in video memory
-dest_addr = dest_buffer+y1*mempitch;
-
-// test if x clipping is needed
-if (x1>=min_clip_x && x1<=max_clip_x &&
-    x2>=min_clip_x && x2<=max_clip_x &&
-    x3>=min_clip_x && x3<=max_clip_x)
-    {
-    // draw the triangle
-    for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-        {
-        // draw the line
-        Mem_Set_WORD(dest_addr+(unsigned int)xs,color,(unsigned int)(xe-xs+1));
-
-        // adjust starting point and ending point
-        xs+=dx_left;
-        xe+=dx_right;
-
-        } // end for
-
-    } // end if no x clipping needed
-else
-   {
-   // clip x axis with slower version
-
-   // draw the triangle
-   for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-       {
-       // do x clip
-       left  = (int)xs;
-       right = (int)xe;
-
-       // adjust starting point and ending point
-       xs+=dx_left;
-       xe+=dx_right;
-
-       // clip line
-       if (left < min_clip_x)
-          {
-          left = min_clip_x;
-
-          if (right < min_clip_x)
-             continue;
-          }
-
-       if (right > max_clip_x)
-          {
-          right = max_clip_x;
-
-          if (left > max_clip_x)
-             continue;
-          }
-
-        // draw the line
-        Mem_Set_WORD(dest_addr+(unsigned int)left,color,(unsigned int)(right-left+1));
-
-       } // end for
-
-   } // end else x clipping needed
-
-} // end Draw_Top_Tri16
-
-/////////////////////////////////////////////////////////////////////////////
-
-void Draw_Bottom_Tri16(int x1,int y1, 
-                       int x2,int y2, 
-                       int x3,int y3,
-                       int color,
-                       UCHAR *_dest_buffer, int mempitch)
-{
-// this function draws a triangle that has a flat bottom
-
-float dx_right,    // the dx/dy ratio of the right edge of line
-      dx_left,     // the dx/dy ratio of the left edge of line
-      xs,xe,       // the starting and ending points of the edges
-      height;      // the height of the triangle
-
-int temp_x,        // used during sorting as temps
-    temp_y,
-    right,         // used by clipping
-    left;
-
-// cast dest buffer to ushort
-USHORT *dest_buffer = (USHORT *)_dest_buffer;
-
-// destination address of next scanline
-USHORT  *dest_addr = NULL;
-
-// recompute mempitch in 16-bit words
-mempitch = (mempitch >> 1);
-
-// test order of x1 and x2
-if (x3 < x2)
-   {
-   temp_x = x2;
-   x2     = x3;
-   x3     = temp_x;
-   } // end if swap
-
-// compute delta's
-height = y3-y1;
-
-dx_left  = (x2-x1)/height;
-dx_right = (x3-x1)/height;
-
-// set starting points
-xs = (float)x1;
-xe = (float)x1; // +(float)0.5;
-
-// perform y clipping
-if (y1<min_clip_y)
-   {
-   // compute new xs and ys
-   xs = xs+dx_left*(float)(-y1+min_clip_y);
-   xe = xe+dx_right*(float)(-y1+min_clip_y);
-
-   // reset y1
-   y1=min_clip_y;
-
-   } // end if top is off screen
-
-if (y3>max_clip_y)
-   y3=max_clip_y;
-
-// compute starting address in video memory
-dest_addr = dest_buffer+y1*mempitch;
-
-// test if x clipping is needed
-if (x1>=min_clip_x && x1<=max_clip_x &&
-    x2>=min_clip_x && x2<=max_clip_x &&
-    x3>=min_clip_x && x3<=max_clip_x)
-    {
-    // draw the triangle
-    for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-        {
-        // draw the line
-        Mem_Set_WORD(dest_addr+(unsigned int)xs,color,(unsigned int)(xe-xs+1));
-
-        // adjust starting point and ending point
-        xs+=dx_left;
-        xe+=dx_right;
-
-        } // end for
-
-    } // end if no x clipping needed
-else
-   {
-   // clip x axis with slower version
-
-   // draw the triangle
-   for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-       {
-       // do x clip
-       left  = (int)xs;
-       right = (int)xe;
-
-       // adjust starting point and ending point
-       xs+=dx_left;
-       xe+=dx_right;
-
-       // clip line
-       if (left < min_clip_x)
-          {
-          left = min_clip_x;
-
-          if (right < min_clip_x)
-             continue;
-          }
-
-       if (right > max_clip_x)
-          {
-          right = max_clip_x;
-
-          if (left > max_clip_x)
-             continue;
-          }
-       // draw the line
-       Mem_Set_WORD(dest_addr+(unsigned int)left,color,(unsigned int)(right-left+1));
-
-       } // end for
-
-   } // end else x clipping needed
-
-} // end Draw_Bottom_Tri16
-
-///////////////////////////////////////////////////////////////////////////////
-
+   float dx_right,    // the dx/dy ratio of the right edge of line
+         dx_left,     // the dx/dy ratio of the left edge of line
+         xs,xe,       // the starting and ending points of the edges
+         height;      // the height of the triangle
+
+   int temp_x,        // used during sorting as temps
+      temp_y,
+      right,         // used by clipping
+      left;
+
+   // destination address of next scanline
+   UCHAR  *dest_addr;
+
+   // test order of x1 and x2
+   if (x3 < x2) {
+      temp_x = x2;
+      x2     = x3;
+      x3     = temp_x;
+   }
+
+   // compute delta's
+   height = y3-y1;
+
+   dx_left  = (x2-x1)/height;
+   dx_right = (x3-x1)/height;
+
+   // set starting points
+   xs = (float)x1;
+   xe = (float)x1; // +(float)0.5;
+
+   // perform y clipping
+   if (y1<min_clip_y) {
+      // compute new xs and ys
+      xs = xs+dx_left*(float)(-y1+min_clip_y);
+      xe = xe+dx_right*(float)(-y1+min_clip_y);
+
+      // reset y1
+      y1=min_clip_y;
+
+   }
+
+   if (y3>max_clip_y)
+      y3=max_clip_y;
+
+   // compute starting address in video memory
+   dest_addr = dest_buffer+y1*mempitch;
+
+   // test if x clipping is needed
+   if (x1>=min_clip_x && x1<=max_clip_x &&
+      x2>=min_clip_x && x2<=max_clip_x &&
+      x3>=min_clip_x && x3<=max_clip_x) {
+      // draw the triangle
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
+
+            int start_x = xs;
+            int end_x   = xe;
+            int width = end_x - start_x + 1;
+         
+            if (width > 0) {
+
+               UCHAR *line_ptr = dest_addr + start_x * 4;
+               UCHAR *color_bytes = (UCHAR *)&color;
+               
+               for (int i = 0; i < width; i++) {
+                     line_ptr[0] = color_bytes[0];  // blue
+                     line_ptr[1] = color_bytes[1];  // green
+                     line_ptr[2] = color_bytes[2];  // red
+                     line_ptr[3] = color_bytes[3];  // Alpha
+                     line_ptr += 4;
+               }
+            }
+
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
+
+         }
+
+   } else {
+      // clip x axis with slower version
+
+      // draw the triangle
+
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
+         // do x clip
+         left  = (int)xs;
+         right = (int)xe;
+
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
+
+         // clip line
+         if (left < min_clip_x) {
+            left = min_clip_x;
+
+            if (right < min_clip_x)
+               continue;
+         }
+
+         if (right > max_clip_x) {
+            right = max_clip_x;
+
+            if (left > max_clip_x)
+               continue;
+         }
+
+         int pixel_count = right - left + 1;
+         if (pixel_count > 0) {
+            UCHAR *pixel_ptr = dest_addr + left * 4; 
+            
+            for (int i = 0; i < pixel_count; i++) {
+                  pixel_ptr[0] = (color >> 0) & 0xFF;  // blue
+                  pixel_ptr[1] = (color >> 8) & 0xFF;  // green
+                  pixel_ptr[2] = (color >> 16) & 0xFF;  // red
+                  pixel_ptr[3] = (color >> 24) & 0xFF;  // Alpha
+                  pixel_ptr += 4;
+            }
+         }
+      }
+
+   }
+}
+
+/* draws a triangle on the destination buffer using fixed point
+   it decomposes all triangles into a pair of flat top, flat bottom*/
 void Draw_TriangleFP_2D(int x1,int y1,
                         int x2,int y2,
                         int x3,int y3,
                         int color,
     	   			    UCHAR *dest_buffer, int mempitch)
 {
-// this function draws a triangle on the destination buffer using fixed point
-// it decomposes all triangles into a pair of flat top, flat bottom
 
-int temp_x, // used for sorting
-    temp_y,
-    new_x;
+   int temp_x, // used for sorting
+      temp_y,
+      new_x;
 
-// test for h lines and v lines
-if ((x1==x2 && x2==x3)  ||  (y1==y2 && y2==y3))
-   return;
+   // test for h lines and v lines
+   if ((x1==x2 && x2==x3)  ||  (y1==y2 && y2==y3))
+      return;
 
-// sort p1,p2,p3 in ascending y order
-if (y2<y1)
-   {
-   temp_x = x2;
-   temp_y = y2;
-   x2     = x1;
-   y2     = y1;
-   x1     = temp_x;
-   y1     = temp_y;
-   } // end if
+   // sort p1,p2,p3 in ascending y order
+   if (y2<y1) {
+      temp_x = x2;
+      temp_y = y2;
+      x2     = x1;
+      y2     = y1;
+      x1     = temp_x;
+      y1     = temp_y;
+   }
 
-// now we know that p1 and p2 are in order
-if (y3<y1)
-   {
-   temp_x = x3;
-   temp_y = y3;
-   x3     = x1;
-   y3     = y1;
-   x1     = temp_x;
-   y1     = temp_y;
-   } // end if
+   // now we know that p1 and p2 are in order
+   if (y3<y1) {
+      temp_x = x3;
+      temp_y = y3;
+      x3     = x1;
+      y3     = y1;
+      x1     = temp_x;
+      y1     = temp_y;
+   } 
 
-// finally test y3 against y2
-if (y3<y2)
-   {
-   temp_x = x3;
-   temp_y = y3;
-   x3     = x2;
-   y3     = y2;
-   x2     = temp_x;
-   y2     = temp_y;
+   // finally test y3 against y2
+   if (y3<y2) {
+      temp_x = x3;
+      temp_y = y3;
+      x3     = x2;
+      y3     = y2;
+      x2     = temp_x;
+      y2     = temp_y;
+   }
 
-   } // end if
+   // do trivial rejection tests for clipping
+   if ( y3<min_clip_y || y1>max_clip_y ||
+      (x1<min_clip_x && x2<min_clip_x && x3<min_clip_x) ||
+      (x1>max_clip_x && x2>max_clip_x && x3>max_clip_x) )
+      return;
 
-// do trivial rejection tests for clipping
-if ( y3<min_clip_y || y1>max_clip_y ||
-    (x1<min_clip_x && x2<min_clip_x && x3<min_clip_x) ||
-    (x1>max_clip_x && x2>max_clip_x && x3>max_clip_x) )
-   return;
+   // test if top of triangle is flat
+   if (y1==y2) {
+      Draw_Top_TriFP(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
+   } else if (y2==y3) {
+      /* bottom is flat */
+      Draw_Bottom_TriFP(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
+   } else {
+      // general triangle that's needs to be broken up along long edge
+      new_x = x1 + (int)(0.5+(float)(y2-y1)*(float)(x3-x1)/(float)(y3-y1));
 
-// test if top of triangle is flat
-if (y1==y2)
-   {
-   Draw_Top_TriFP(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
-   } // end if
-else
-if (y2==y3)
-   {
-   Draw_Bottom_TriFP(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
-   } // end if bottom is flat
-else
-   {
-   // general triangle that's needs to be broken up along long edge
-   new_x = x1 + (int)(0.5+(float)(y2-y1)*(float)(x3-x1)/(float)(y3-y1));
+      // draw each sub-triangle
+      Draw_Bottom_TriFP(x1,y1,new_x,y2,x2,y2,color, dest_buffer, mempitch);
+      Draw_Top_TriFP(x2,y2,new_x,y2,x3,y3,color, dest_buffer, mempitch);
+   }
+}
 
-   // draw each sub-triangle
-   Draw_Bottom_TriFP(x1,y1,new_x,y2,x2,y2,color, dest_buffer, mempitch);
-   Draw_Top_TriFP(x2,y2,new_x,y2,x3,y3,color, dest_buffer, mempitch);
-
-   } // end else
-
-} // end Draw_TriangleFP_2D
-
-/////////////////////////////////////////////////////////////
-
+/* draws a triangle on the destination buffer
+   it decomposes all triangles into a pair of flat top, flat bottom */
 void Draw_Triangle_2D(int x1,int y1,
                       int x2,int y2,
                       int x3,int y3,
                       int color,
 					  UCHAR *dest_buffer, int mempitch)
 {
-// this function draws a triangle on the destination buffer
-// it decomposes all triangles into a pair of flat top, flat bottom
 
-int temp_x, // used for sorting
-    temp_y,
-    new_x;
+   int temp_x, // used for sorting
+      temp_y,
+      new_x;
 
-// test for h lines and v lines
-if ((x1==x2 && x2==x3)  ||  (y1==y2 && y2==y3))
-   return;
+   // test for h lines and v lines
+   if ((x1==x2 && x2==x3)  ||  (y1==y2 && y2==y3))
+      return;
 
-// sort p1,p2,p3 in ascending y order
-if (y2<y1)
-   {
-   temp_x = x2;
-   temp_y = y2;
-   x2     = x1;
-   y2     = y1;
-   x1     = temp_x;
-   y1     = temp_y;
-   } // end if
+   // sort p1,p2,p3 in ascending y order
+   if (y2<y1) {
+      temp_x = x2;
+      temp_y = y2;
+      x2     = x1;
+      y2     = y1;
+      x1     = temp_x;
+      y1     = temp_y;
+   }
 
-// now we know that p1 and p2 are in order
-if (y3<y1)
-   {
-   temp_x = x3;
-   temp_y = y3;
-   x3     = x1;
-   y3     = y1;
-   x1     = temp_x;
-   y1     = temp_y;
-   } // end if
+   // now we know that p1 and p2 are in order
+   if (y3<y1) {
+      temp_x = x3;
+      temp_y = y3;
+      x3     = x1;
+      y3     = y1;
+      x1     = temp_x;
+      y1     = temp_y;
+   }
 
-// finally test y3 against y2
-if (y3<y2)
-   {
-   temp_x = x3;
-   temp_y = y3;
-   x3     = x2;
-   y3     = y2;
-   x2     = temp_x;
-   y2     = temp_y;
+   // finally test y3 against y2
+   if (y3<y2) {
+      temp_x = x3;
+      temp_y = y3;
+      x3     = x2;
+      y3     = y2;
+      x2     = temp_x;
+      y2     = temp_y;
+   }
 
-   } // end if
+   // do trivial rejection tests for clipping
+   if ( y3<min_clip_y || y1>max_clip_y ||
+      (x1<min_clip_x && x2<min_clip_x && x3<min_clip_x) ||
+      (x1>max_clip_x && x2>max_clip_x && x3>max_clip_x) )
+      return;
 
-// do trivial rejection tests for clipping
-if ( y3<min_clip_y || y1>max_clip_y ||
-    (x1<min_clip_x && x2<min_clip_x && x3<min_clip_x) ||
-    (x1>max_clip_x && x2>max_clip_x && x3>max_clip_x) )
-   return;
+   // test if top of triangle is flat
+   if (y1==y2) {
+      Draw_Top_Tri(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
+   } else if (y2==y3) {
+      /* bottom is flat*/
+      Draw_Bottom_Tri(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
+   } else {
+      // general triangle that's needs to be broken up along long edge
+      new_x = x1 + (int)(0.5+(float)(y2-y1)*(float)(x3-x1)/(float)(y3-y1));
 
-// test if top of triangle is flat
-if (y1==y2)
-   {
-   Draw_Top_Tri(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
-   } // end if
-else
-if (y2==y3)
-   {
-   Draw_Bottom_Tri(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
-   } // end if bottom is flat
-else
-   {
-   // general triangle that's needs to be broken up along long edge
-   new_x = x1 + (int)(0.5+(float)(y2-y1)*(float)(x3-x1)/(float)(y3-y1));
+      // draw each sub-triangle
+      Draw_Bottom_Tri(x1,y1,new_x,y2,x2,y2,color, dest_buffer, mempitch);
+      Draw_Top_Tri(x2,y2,new_x,y2,x3,y3,color, dest_buffer, mempitch);
+   }
+}
 
-   // draw each sub-triangle
-   Draw_Bottom_Tri(x1,y1,new_x,y2,x2,y2,color, dest_buffer, mempitch);
-   Draw_Top_Tri(x2,y2,new_x,y2,x3,y3,color, dest_buffer, mempitch);
-
-   } // end else
-
-} // end Draw_Triangle_2D
-
-///////////////////////////////////////////////////////////////////////////////
-
-void Draw_Triangle_2D16(int x1,int y1,
-                        int x2,int y2,
-                        int x3,int y3,
-                        int color,
-					    UCHAR *dest_buffer, int mempitch)
-{
-// this function draws a triangle on the destination buffer
-// it decomposes all triangles into a pair of flat top, flat bottom
-
-
-int temp_x, // used for sorting
-    temp_y,
-    new_x;
-
-// test for h lines and v lines
-if ((x1==x2 && x2==x3)  ||  (y1==y2 && y2==y3))
-   return;
-
-// sort p1,p2,p3 in ascending y order
-if (y2<y1)
-   {
-   temp_x = x2;
-   temp_y = y2;
-   x2     = x1;
-   y2     = y1;
-   x1     = temp_x;
-   y1     = temp_y;
-   } // end if
-
-// now we know that p1 and p2 are in order
-if (y3<y1)
-   {
-   temp_x = x3;
-   temp_y = y3;
-   x3     = x1;
-   y3     = y1;
-   x1     = temp_x;
-   y1     = temp_y;
-   } // end if
-
-// finally test y3 against y2
-if (y3<y2)
-   {
-   temp_x = x3;
-   temp_y = y3;
-   x3     = x2;
-   y3     = y2;
-   x2     = temp_x;
-   y2     = temp_y;
-
-   } // end if
-
-// do trivial rejection tests for clipping
-if ( y3<min_clip_y || y1>max_clip_y ||
-    (x1<min_clip_x && x2<min_clip_x && x3<min_clip_x) ||
-    (x1>max_clip_x && x2>max_clip_x && x3>max_clip_x) )
-   return;
-
-// test if top of triangle is flat
-if (y1==y2)
-   {
-   Draw_Top_Tri16(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
-   } // end if
-else
-if (y2==y3)
-   {
-   Draw_Bottom_Tri16(x1,y1,x2,y2,x3,y3,color, dest_buffer, mempitch);
-   } // end if bottom is flat
-else
-   {
-   // general triangle that's needs to be broken up along long edge
-   new_x = x1 + (int)(0.5+(float)(y2-y1)*(float)(x3-x1)/(float)(y3-y1));
-
-   // draw each sub-triangle
-   Draw_Bottom_Tri16(x1,y1,new_x,y2,x2,y2,color, dest_buffer, mempitch);
-   Draw_Top_Tri16(x2,y2,new_x,y2,x3,y3,color, dest_buffer, mempitch);
-
-   } // end else
-
-} // end Draw_Triangle_2D16
-
-////////////////////////////////////////////////////////////////////////////////
-
+/* draws a 2D quadrilateral */
 inline void Draw_QuadFP_2D(int x0,int y0,
                     int x1,int y1,
                     int x2,int y2,
@@ -4399,137 +3903,145 @@ inline void Draw_QuadFP_2D(int x0,int y0,
                     int color,
                     UCHAR *dest_buffer, int mempitch)
 {
-// this function draws a 2D quadrilateral
+   // simply call the triangle function 2x, let it do all the work
+   Draw_TriangleFP_2D(x0,y0,x1,y1,x3,y3,color,dest_buffer,mempitch);
+   Draw_TriangleFP_2D(x1,y1,x2,y2,x3,y3,color,dest_buffer,mempitch);
 
-// simply call the triangle function 2x, let it do all the work
-Draw_TriangleFP_2D(x0,y0,x1,y1,x3,y3,color,dest_buffer,mempitch);
-Draw_TriangleFP_2D(x1,y1,x2,y2,x3,y3,color,dest_buffer,mempitch);
+}
 
-} // end Draw_QuadFP_2D
-
-////////////////////////////////////////////////////////////////////////////////
-
+/* draws a triangle that has a flat top using fixed point math */
 void Draw_Top_TriFP(int x1,int y1,
                     int x2,int y2, 
                     int x3,int y3,
                     int color, 
                     UCHAR *dest_buffer, int mempitch)
 {
-// this function draws a triangle that has a flat top using fixed point math
 
-int dx_right,    // the dx/dy ratio of the right edge of line
-    dx_left,     // the dx/dy ratio of the left edge of line
-    xs,xe,       // the starting and ending points of the edges
-    height;      // the height of the triangle
+   int dx_right,    // the dx/dy ratio of the right edge of line
+      dx_left,     // the dx/dy ratio of the left edge of line
+      xs,xe,       // the starting and ending points of the edges
+      height;      // the height of the triangle
 
-int temp_x,        // used during sorting as temps
-    temp_y,
-    right,         // used by clipping
-    left;
+   int temp_x,        // used during sorting as temps
+      temp_y,
+      right,         // used by clipping
+      left;
 
-UCHAR  *dest_addr;
+   UCHAR  *dest_addr;
 
-// test for degenerate
-if (y1==y3 || y2==y3)
-	return;
+   // test for degenerate
+   if (y1==y3 || y2==y3)
+      return;
 
-// test order of x1 and x2
-if (x2 < x1)
-   {
-   temp_x = x2;
-   x2     = x1;
-   x1     = temp_x;
-   } // end if swap
+   // test order of x1 and x2
+   if (x2 < x1) {
+      temp_x = x2;
+      x2     = x1;
+      x1     = temp_x;
+   }
 
-// compute delta's
-height = y3-y1;
+   // compute delta's
+   height = y3-y1;
 
-dx_left  = ((x3-x1)<<FIXP16_SHIFT)/height;
-dx_right = ((x3-x2)<<FIXP16_SHIFT)/height;
+   dx_left  = ((x3-x1)<<FIXP16_SHIFT)/height;
+   dx_right = ((x3-x2)<<FIXP16_SHIFT)/height;
 
-// set starting points
-xs = (x1<<FIXP16_SHIFT);
-xe = (x2<<FIXP16_SHIFT);
+   // set starting points
+   xs = (x1<<FIXP16_SHIFT);
+   xe = (x2<<FIXP16_SHIFT);
 
-// perform y clipping
-if (y1<min_clip_y)
-   {
-   // compute new xs and ys
-   xs = xs+dx_left*(-y1+min_clip_y);
-   xe = xe+dx_right*(-y1+min_clip_y);
+   // perform y clipping
+   if (y1<min_clip_y) {
+      // compute new xs and ys
+      xs = xs+dx_left*(-y1+min_clip_y);
+      xe = xe+dx_right*(-y1+min_clip_y);
 
-   // reset y1
-   y1=min_clip_y;
+      // reset y1
+      y1=min_clip_y;
+   }
 
-   } // end if top is off screen
+   if (y3>max_clip_y)
+      y3=max_clip_y;
 
-if (y3>max_clip_y)
-   y3=max_clip_y;
+   // compute starting address in video memory
+   dest_addr = dest_buffer+y1*mempitch;
 
-// compute starting address in video memory
-dest_addr = dest_buffer+y1*mempitch;
+   // test if x clipping is needed
+   if (x1>=min_clip_x && x1<=max_clip_x &&
+      x2>=min_clip_x && x2<=max_clip_x &&
+      x3>=min_clip_x && x3<=max_clip_x) {
+      
+      // draw the triangle
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
+         int start_x = (xs + FIXP16_ROUND_UP) >> FIXP16_SHIFT;
+         int end_x   = (xe + FIXP16_ROUND_UP) >> FIXP16_SHIFT;
+         int width = end_x - start_x + 1;
+      
+         if (width > 0) {
 
-// test if x clipping is needed
-if (x1>=min_clip_x && x1<=max_clip_x &&
-    x2>=min_clip_x && x2<=max_clip_x &&
-    x3>=min_clip_x && x3<=max_clip_x)
-    {
-    // draw the triangle
-    for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-        {
-        memset((UCHAR *)dest_addr+((xs+FIXP16_ROUND_UP)>>FIXP16_SHIFT),
-               color, (((xe-xs+FIXP16_ROUND_UP)>>FIXP16_SHIFT)+1));
+            UCHAR *line_ptr = dest_addr + start_x * 4;
+            UCHAR *color_bytes = (UCHAR *)&color;
+            
+            for (int i = 0; i < width; i++) {
+                  line_ptr[0] = color_bytes[0];  // blue
+                  line_ptr[1] = color_bytes[1];  // green
+                  line_ptr[2] = color_bytes[2];  // red
+                  line_ptr[3] = color_bytes[3];  // Alpha
+                  line_ptr += 4;
+            }
+         }
 
-        // adjust starting point and ending point
-        xs+=dx_left;
-        xe+=dx_right;
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
+      }
 
-        } // end for
+   } else {
+      // clip x axis with slower version
 
-    } // end if no x clipping needed
-else
-   {
-   // clip x axis with slower version
+      // draw the triangle
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
+         // do x clip
+         left  = ((xs+FIXP16_ROUND_UP)>>16);
+         right = ((xe+FIXP16_ROUND_UP)>>16);
 
-   // draw the triangle
-   for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-       {
-       // do x clip
-       left  = ((xs+FIXP16_ROUND_UP)>>16);
-       right = ((xe+FIXP16_ROUND_UP)>>16);
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
 
-       // adjust starting point and ending point
-       xs+=dx_left;
-       xe+=dx_right;
+         // clip line
+         if (left < min_clip_x) {
+            left = min_clip_x;
 
-       // clip line
-       if (left < min_clip_x)
-          {
-          left = min_clip_x;
+            if (right < min_clip_x)
+               continue;
+         }
 
-          if (right < min_clip_x)
-             continue;
-          }
+         if (right > max_clip_x) {
+            right = max_clip_x;
 
-       if (right > max_clip_x)
-          {
-          right = max_clip_x;
+            if (left > max_clip_x)
+               continue;
+         }
 
-          if (left > max_clip_x)
-             continue;
-          }
+         int pixel_count = right - left + 1;
+         if (pixel_count > 0) {
+            UCHAR *pixel_ptr = dest_addr + left * 4; 
+            
+            for (int i = 0; i < pixel_count; i++) {
+                  pixel_ptr[0] = (color >> 0) & 0xFF;  // blue
+                  pixel_ptr[1] = (color >> 8) & 0xFF;  // green
+                  pixel_ptr[2] = (color >> 16) & 0xFF;  // red
+                  pixel_ptr[3] = (color >> 24) & 0xFF;  // Alpha
+                  pixel_ptr += 4;
+            }
+         }
+      }
+   }
 
-       memset((UCHAR  *)dest_addr+(unsigned int)left,
-              color,(unsigned int)(right-left+1));
+}
 
-       } // end for
-
-   } // end else x clipping needed
-
-} // end Draw_Top_TriFP
-
-/////////////////////////////////////////////////////////////////////////////
-
+/* draws a triangle that has a flat bottom using fixed point math*/
 void Draw_Bottom_TriFP(int x1,int y1, 
                        int x2,int y2, 
                        int x3,int y3,
@@ -4537,1462 +4049,912 @@ void Draw_Bottom_TriFP(int x1,int y1,
                        UCHAR *dest_buffer, int mempitch)
 {
 
-// this function draws a triangle that has a flat bottom using fixed point math
+   int dx_right,    // the dx/dy ratio of the right edge of line
+      dx_left,     // the dx/dy ratio of the left edge of line
+      xs,xe,       // the starting and ending points of the edges
+      height;      // the height of the triangle
 
-int dx_right,    // the dx/dy ratio of the right edge of line
-    dx_left,     // the dx/dy ratio of the left edge of line
-    xs,xe,       // the starting and ending points of the edges
-    height;      // the height of the triangle
+   int temp_x,        // used during sorting as temps
+      temp_y,
+      right,         // used by clipping
+      left;
 
-int temp_x,        // used during sorting as temps
-    temp_y,
-    right,         // used by clipping
-    left;
+   UCHAR  *dest_addr;
 
-UCHAR  *dest_addr;
+   if (y1==y2 || y1==y3)
+      return;
 
-if (y1==y2 || y1==y3)
-	return;
+   // test order of x1 and x2
+   if (x3 < x2) {
+      temp_x = x2;
+      x2     = x3;
+      x3     = temp_x;
 
-// test order of x1 and x2
-if (x3 < x2)
-   {
-   temp_x = x2;
-   x2     = x3;
-   x3     = temp_x;
+   }
 
-   } // end if swap
+   // compute delta's
+   height = y3-y1;
 
-// compute delta's
-height = y3-y1;
+   dx_left  = ((x2-x1)<<FIXP16_SHIFT)/height;
+   dx_right = ((x3-x1)<<FIXP16_SHIFT)/height;
 
-dx_left  = ((x2-x1)<<FIXP16_SHIFT)/height;
-dx_right = ((x3-x1)<<FIXP16_SHIFT)/height;
+   // set starting points
+   xs = (x1<<FIXP16_SHIFT);
+   xe = (x1<<FIXP16_SHIFT); 
 
-// set starting points
-xs = (x1<<FIXP16_SHIFT);
-xe = (x1<<FIXP16_SHIFT); 
+   // perform y clipping
+   if (y1<min_clip_y) {
+      // compute new xs and ys
+      xs = xs+dx_left*(-y1+min_clip_y);
+      xe = xe+dx_right*(-y1+min_clip_y);
 
-// perform y clipping
-if (y1<min_clip_y)
-   {
-   // compute new xs and ys
-   xs = xs+dx_left*(-y1+min_clip_y);
-   xe = xe+dx_right*(-y1+min_clip_y);
+      // reset y1
+      y1=min_clip_y;
 
-   // reset y1
-   y1=min_clip_y;
+   }
 
-   } // end if top is off screen
+   if (y3>max_clip_y)
+      y3=max_clip_y;
 
-if (y3>max_clip_y)
-   y3=max_clip_y;
+   // compute starting address in video memory
+   dest_addr = dest_buffer+y1*mempitch;
 
-// compute starting address in video memory
-dest_addr = dest_buffer+y1*mempitch;
+   // test if x clipping is needed
+   if (x1>=min_clip_x && x1<=max_clip_x &&
+      x2>=min_clip_x && x2<=max_clip_x &&
+      x3>=min_clip_x && x3<=max_clip_x) {
+      // draw the triangle
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
 
-// test if x clipping is needed
-if (x1>=min_clip_x && x1<=max_clip_x &&
-    x2>=min_clip_x && x2<=max_clip_x &&
-    x3>=min_clip_x && x3<=max_clip_x)
-    {
-    // draw the triangle
-    for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-        {
-        memset((UCHAR *)dest_addr+((xs+FIXP16_ROUND_UP)>>FIXP16_SHIFT),
-                color, (((xe-xs+FIXP16_ROUND_UP)>>FIXP16_SHIFT)+1));
+         int start_x = (xs + FIXP16_ROUND_UP) >> FIXP16_SHIFT;
+         int end_x   = (xe + FIXP16_ROUND_UP) >> FIXP16_SHIFT;
+         int width = end_x - start_x + 1;
+      
+         if (width > 0) {
+            UCHAR *line_ptr = dest_addr + start_x * 4;
+            UCHAR *color_bytes = (UCHAR *)&color;
+            
+            for (int i = 0; i < width; i++) {
+                  line_ptr[0] = color_bytes[0];  // blue
+                  line_ptr[1] = color_bytes[1];  // green
+                  line_ptr[2] = color_bytes[2];  // red
+                  line_ptr[3] = color_bytes[3];  // Alpha
+                  line_ptr += 4;
+            }
+         }
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
 
-        // adjust starting point and ending point
-        xs+=dx_left;
-        xe+=dx_right;
+         }
 
-        } // end for
+      } else {
+      // clip x axis with slower version
 
-    } // end if no x clipping needed
-else
-   {
-   // clip x axis with slower version
+      // draw the triangle
+      for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch) {
+         // do x clip
+         left  = ((xs+FIXP16_ROUND_UP)>>FIXP16_SHIFT);
+         right = ((xe+FIXP16_ROUND_UP)>>FIXP16_SHIFT);
 
-   // draw the triangle
-   for (temp_y=y1; temp_y<=y3; temp_y++,dest_addr+=mempitch)
-       {
-       // do x clip
-       left  = ((xs+FIXP16_ROUND_UP)>>FIXP16_SHIFT);
-       right = ((xe+FIXP16_ROUND_UP)>>FIXP16_SHIFT);
+         // adjust starting point and ending point
+         xs+=dx_left;
+         xe+=dx_right;
 
-       // adjust starting point and ending point
-       xs+=dx_left;
-       xe+=dx_right;
+         // clip line
+         if (left < min_clip_x) {
+            left = min_clip_x;
 
-       // clip line
-       if (left < min_clip_x)
-          {
-          left = min_clip_x;
+            if (right < min_clip_x)
+               continue;
+         }
 
-          if (right < min_clip_x)
-             continue;
-          }
+         if (right > max_clip_x) {
+            right = max_clip_x;
 
-       if (right > max_clip_x)
-          {
-          right = max_clip_x;
+            if (left > max_clip_x)
+               continue;
+         }
 
-          if (left > max_clip_x)
-             continue;
-          }
+         int pixel_count = right - left + 1;
+         if (pixel_count > 0) {
+            UCHAR *pixel_ptr = dest_addr + left * 4; 
+            
+            for (int i = 0; i < pixel_count; i++) {
+               pixel_ptr[0] = (color >> 0) & 0xFF;  // blue
+               pixel_ptr[1] = (color >> 8) & 0xFF;  // green
+               pixel_ptr[2] = (color >> 16) & 0xFF;  // red
+               pixel_ptr[3] = (color >> 24) & 0xFF;  // Alpha
+               pixel_ptr += 4;
+            }
+         }
+      }
+   }
 
-       memset((UCHAR *)dest_addr+left,
-              color, (right-left+1));
+}
 
-       } // end for
-
-   } // end else x clipping needed
-
-} // end Draw_Bottom_TriFP
-
-////////////////////////////////////////////////////////////////////////////
-
-int Fast_Distance_2D(int x, int y)
-{
 // this function computes the distance from 0,0 to x,y with 3.5% error
+// it equals sqrt(x^2+y^2)
+int Fast_Distance_2D(int x, int y) {
 
-// first compute the absolute value of x,y
-x = abs(x);
-y = abs(y);
+   // first compute the absolute value of x,y
+   x = abs(x);
+   y = abs(y);
 
-// compute the minimum of x,y
-int mn = MIN(x,y);
+   // compute the minimum of x,y
+   int mn = MIN(x,y);
 
-// return the distance
-return(x+y-(mn>>1)-(mn>>2)+(mn>>4));
+   // return the distance
+   return(x+y-(mn>>1)-(mn>>2)+(mn>>4));
+}
 
-} // end Fast_Distance_2D
-
-///////////////////////////////////////////////////////////////////////////////
-
-float Fast_Distance_3D(float fx, float fy, float fz)
-{
 // this function computes the distance from the origin to x,y,z
+// it equals sqrt(x^2+y^2+z^2)
+float Fast_Distance_3D(float fx, float fy, float fz) {
 
-int temp;  // used for swaping
-int x,y,z; // used for algorithm
+   int temp;  // used for swaping
+   int x,y,z; // used for algorithm
 
-// make sure values are all positive
-x = fabs(fx) * 1024;
-y = fabs(fy) * 1024;
-z = fabs(fz) * 1024;
+   // make sure values are all positive
+   x = fabs(fx) * 1024;
+   y = fabs(fy) * 1024;
+   z = fabs(fz) * 1024;
 
-// sort values
-if (y < x) SWAP(x,y,temp)
+   // sort values
+   if (y < x) SWAP(x,y,temp)
 
-if (z < y) SWAP(y,z,temp)
+   if (z < y) SWAP(y,z,temp)
 
-if (y < x) SWAP(x,y,temp)
+   if (y < x) SWAP(x,y,temp)
 
-int dist = (z + 11*(y >> 5) + (x >> 2) );
+   int dist = (z + 11*(y >> 5) + (x >> 2) );
 
-// compute distance with 8% error
-return((float)(dist >> 10));
+   // compute distance with 8% error
+   return((float)(dist >> 10));
+}
 
-} // end Fast_Distance_3D
-
-///////////////////////////////////////////////////////////////////////////////
-
+// this function finds the bounding box of a 2D polygon 
+// and returns the values in the sent vars
 int Find_Bounding_Box_Poly2D(POLYGON2D_PTR poly, 
                              float &min_x, float &max_x, 
                              float &min_y, float &max_y)
 {
-// this function finds the bounding box of a 2D polygon 
-// and returns the values in the sent vars
 
-// is this poly valid?
-if (poly->num_verts == 0)
-    return(0);
+   // is this poly valid?
+   if (poly->num_verts == 0)
+      return(0);
 
-// initialize output vars (note they are pointers)
-// also note that the algorithm assumes local coordinates
-// that is, the poly verts are relative to 0,0
-max_x = max_y = min_x = min_y = 0;
+   // initialize output vars (note they are pointers)
+   // also note that the algorithm assumes local coordinates
+   // that is, the poly verts are relative to 0,0
+   max_x = max_y = min_x = min_y = 0;
 
-// process each vertex
-for (int index=0; index < poly->num_verts; index++)
-    {
-    // update vars - run min/max seek
-    if (poly->vlist[index].x > max_x)
-       max_x = poly->vlist[index].x;
+   // process each vertex
+   for (int index=0; index < poly->num_verts; index++) {
+      // update vars - run min/max seek
+      if (poly->vlist[index].x > max_x)
+         max_x = poly->vlist[index].x;
 
-    if (poly->vlist[index].x < min_x)
-       min_x = poly->vlist[index].x;
+      if (poly->vlist[index].x < min_x)
+         min_x = poly->vlist[index].x;
 
-    if (poly->vlist[index].y > max_y)
-       max_y = poly->vlist[index].y;
+      if (poly->vlist[index].y > max_y)
+         max_y = poly->vlist[index].y;
 
-    if (poly->vlist[index].y < min_y)
-       min_y = poly->vlist[index].y;
+      if (poly->vlist[index].y < min_y)
+         min_y = poly->vlist[index].y;
 
-} // end for index
+   }
 
-// return success
-return 1;
+   // return success
+   return 1;
+}
 
-} // end Find_Bounding_Box_Poly2D
-
-////////////////////////////////////////////////////////////////
-
+/* draws a general n sided polygon */
 void Draw_Filled_Polygon2D(POLYGON2D_PTR poly, UCHAR *vbuffer, int mempitch)
-{
-// this function draws a general n sided polygon 
+{ 
 
-int ydiff1, ydiff2,         // difference between starting x and ending x
-	xdiff1, xdiff2,         // difference between starting y and ending y
-    start,                  // starting offset of line between edges
-	length,                 // distance from edge 1 to edge 2
-	errorterm1, errorterm2, // error terms for edges 1 & 2
-    offset1, offset2,       // offset of current pixel in edges 1 & 2
-	count1, count2,         // increment count for edges 1 & 2
-    xunit1, xunit2;         // unit to advance x offset for edges 1 & 2
+   int ydiff1, ydiff2,         // difference between starting x and ending x
+      xdiff1, xdiff2,         // difference between starting y and ending y
+      start,                  // starting offset of line between edges
+      length,                 // distance from edge 1 to edge 2
+      errorterm1, errorterm2, // error terms for edges 1 & 2
+      offset1, offset2,       // offset of current pixel in edges 1 & 2
+      count1, count2,         // increment count for edges 1 & 2
+      xunit1, xunit2;         // unit to advance x offset for edges 1 & 2
 
-// initialize count of number of edges drawn:
-int edgecount = poly->num_verts-1;
+   // initialize count of number of edges drawn:
+   int edgecount = poly->num_verts-1;
 
-// determine which vertex is at top of polygon:
+   // determine which vertex is at top of polygon:
 
-int firstvert=0;         // start by assuming vertex 0 is at top
+   int firstvert=0;         // start by assuming vertex 0 is at top
 
-int min_y=poly->vlist[0].y; // find y coordinate of vertex 0
+   int min_y=poly->vlist[0].y; // find y coordinate of vertex 0
 
-for (int index=1; index < poly->num_verts; index++) 
-    {  
-    // Search thru vertices
- 	if ((poly->vlist[index].y) < min_y) 
-        {  
-        // is another vertex higher?
-		firstvert=index;                   
-		min_y=poly->vlist[index].y;
-		} // end if
+   for (int index=1; index < poly->num_verts; index++) {  
+      // Search thru vertices
+      if ((poly->vlist[index].y) < min_y) {  
+         // is another vertex higher?
+         firstvert=index;                   
+         min_y=poly->vlist[index].y;
+      }
+   }
 
-	} // end for index
+   // finding starting and ending vertices of first two edges:
+   int startvert1=firstvert;      // get starting vertex of edge 1
+   int startvert2=firstvert;      // get starting vertex of edge 2
+   int xstart1=poly->vlist[startvert1].x+poly->x0;
+   int ystart1=poly->vlist[startvert1].y+poly->y0;
+   int xstart2=poly->vlist[startvert2].x+poly->x0;
+   int ystart2=poly->vlist[startvert2].y+poly->y0;
+   int endvert1=startvert1-1;           // get ending vertex of edge 1
 
-// finding starting and ending vertices of first two edges:
-int startvert1=firstvert;      // get starting vertex of edge 1
-int startvert2=firstvert;      // get starting vertex of edge 2
-int xstart1=poly->vlist[startvert1].x+poly->x0;
-int ystart1=poly->vlist[startvert1].y+poly->y0;
-int xstart2=poly->vlist[startvert2].x+poly->x0;
-int ystart2=poly->vlist[startvert2].y+poly->y0;
-int endvert1=startvert1-1;           // get ending vertex of edge 1
+   if (endvert1 < 0) 
+      endvert1=poly->num_verts-1;    // check for wrap
 
-if (endvert1 < 0) 
-   endvert1=poly->num_verts-1;    // check for wrap
+   int xend1=poly->vlist[endvert1].x+poly->x0;      // get x & y coordinates
+   int yend1=poly->vlist[endvert1].y+poly->y0;      // of ending vertices
+   int endvert2=startvert2+1;           // get ending vertex of edge 2
 
-int xend1=poly->vlist[endvert1].x+poly->x0;      // get x & y coordinates
-int yend1=poly->vlist[endvert1].y+poly->y0;      // of ending vertices
-int endvert2=startvert2+1;           // get ending vertex of edge 2
+   if (endvert2==(poly->num_verts)) 
+      endvert2=0;  // Check for wrap
 
-if (endvert2==(poly->num_verts)) 
-    endvert2=0;  // Check for wrap
+   int xend2=poly->vlist[endvert2].x+poly->x0;      // get x & y coordinates
+   int yend2=poly->vlist[endvert2].y+poly->y0;      // of ending vertices
 
-int xend2=poly->vlist[endvert2].x+poly->x0;      // get x & y coordinates
-int yend2=poly->vlist[endvert2].y+poly->y0;      // of ending vertices
+   // 32-bit color components
+   UCHAR blue  = (poly->color >> 0) & 0xFF;
+   UCHAR green = (poly->color >> 8) & 0xFF;
+   UCHAR red   = (poly->color >> 16) & 0xFF;
+   UCHAR alpha = (poly->color >> 24) & 0xFF;
+   // draw the polygon:
 
-// draw the polygon:
-
-while (edgecount>0) 
-      {    
+   while (edgecount>0) {    
       // continue drawing until all edges drawn
-	  offset1=mempitch*ystart1+xstart1;  // offset of edge 1
-	  offset2=mempitch*ystart2+xstart2;  // offset of edge 2
-	  
+      offset1=mempitch*ystart1+xstart1*4;  // offset of edge 1
+      offset2=mempitch*ystart2+xstart2*4;  // offset of edge 2
+      
       // initialize error terms
       // for edges 1 & 2
       errorterm1=0;        
-	  errorterm2=0;           
+      errorterm2=0;           
 
       // get absolute value of
-   	  if ((ydiff1=yend1-ystart1) < 0) 
+      if ((ydiff1=yend1-ystart1) < 0) 
          ydiff1=-ydiff1;
 
-      // x & y lengths of edges
-	  if ((ydiff2=yend2-ystart2) < 0) 
-         ydiff2=-ydiff2; 
+         // x & y lengths of edges
+      if ((ydiff2=yend2-ystart2) < 0) 
+            ydiff2=-ydiff2; 
 
-  	  if ((xdiff1=xend1-xstart1) < 0) 
-         {               
-         // get value of length
-		 xunit1=-1;                    // calculate X increment
-		 xdiff1=-xdiff1;
-		 } // end if
-	  else 
-         {
-		 xunit1=1;
-		 } // end else
+      if ((xdiff1=xend1-xstart1) < 0) {               
+            // get value of length
+         xunit1=-4;                    // calculate X increment
+         xdiff1=-xdiff1;
+      } else {
+         xunit1=4;
+      }
 
-   	  if ((xdiff2=xend2-xstart2) < 0) 
-         {
+      if ((xdiff2=xend2-xstart2) < 0) {
          // Get value of length
-  		 xunit2=-1;                   // calculate X increment
-		 xdiff2=-xdiff2;
-		 } // end else
-	  else 
-         {
-		 xunit2=1;
-		 } // end else
+         xunit2=-4;                   // calculate X increment
+         xdiff2=-xdiff2;
+      } else {
+         xunit2=4;
+      }
 
-	  // choose which of four routines to use
-	  if (xdiff1 > ydiff1) 
-         {    
-         // if x length of edge 1 is greater than y length
-		 if (xdiff2 > ydiff2) 
-            {  
+      // choose which of four routines to use
+      if (xdiff1 > ydiff1)  {    
+            // if x length of edge 1 is greater than y length
+         if (xdiff2 > ydiff2) {  
             // if X length of edge 2 is greater than y length
 
-			// increment edge 1 on X and edge 2 on X:
-			count1=xdiff1;    // count for x increment on edge 1
-			count2=xdiff2;    // count for x increment on edge 2
+            // increment edge 1 on X and edge 2 on X:
+            count1=xdiff1;    // count for x increment on edge 1
+            count2=xdiff2;    // count for x increment on edge 2
 
-			while (count1 && count2) 
-                  {  
+            while (count1 && count2) {  
+                     // continue drawing until one edge is done
+               // calculate edge 1:
+               while ((errorterm1 < xdiff1) && (count1 > 0)) { 
+                     // finished w/edge 1?
+                     if (count1--) {     
+                        // count down on edge 1
+                        offset1+=xunit1;  // increment pixel offset
+                        xstart1 += (xunit1 / 4);  // update x coordiation
+                     }
+
+                     errorterm1+=ydiff1; // increment error term
+
+                     if (errorterm1 < xdiff1) {  
+                        // if not more than XDIFF
+                     vbuffer[offset1] = blue;       // blue
+                     vbuffer[offset1 + 1] = green;  // green
+                     vbuffer[offset1 + 2] = red;    // red
+                     vbuffer[offset1 + 3] = alpha;  // alpha
+                     }
+                  }
+                  
+               errorterm1-=xdiff1; // if time to increment X, restore error term
+
+               // calculate edge 2:
+
+               while ((errorterm2 < xdiff2) && (count2 > 0)) {  
+                     // finished w/edge 2?
+                     if (count2--) {     
+                        // count down on edge 2
+                        offset2+=xunit2;  // increment pixel offset
+                        xstart2 += (xunit2 / 4);  // update x coordiation
+                  }
+
+                     errorterm2+=ydiff2; // increment error term
+
+                     if (errorterm2 < xdiff2) {  
+                        // if not more than XDIFF
+	                     vbuffer[offset2] = blue;       // blue
+	                     vbuffer[offset2 + 1] = green;  // green
+	                     vbuffer[offset2 + 2] = red;    // red
+	                     vbuffer[offset2 + 3] = alpha;  // alpha
+                     }
+
+                  }
+
+                  errorterm2-=xdiff2; // if time to increment X, restore error term
+
+                  // draw line from edge 1 to edge 2:
+
+                  length=(offset2 - offset1) / 4; // determine length of horizontal line
+
+                  if (length < 0) { 
+                     // if negative...
+                     length=-length;       // make it positive
+                     start=offset2;        // and set START to edge 2
+                  } else 
+                     start=offset1;     // else set START to edge 1
+            
+               	// draw the line
+                 for (int i = 0; i <= length; i++) {  
+                  vbuffer[start + i*4] = blue;       // blue
+                  vbuffer[start + i*4 + 1] = green;  // green
+                  vbuffer[start + i*4 + 2] = red;    // red
+                  vbuffer[start + i*4 + 3] = alpha;  // alpha
+                  }
+
+                  offset1+=mempitch;           // advance edge 1 offset to next line
+                  ystart1++;
+                  offset2+=mempitch;           // advance edge 2 offset to next line
+                  ystart2++;
+               }
+
+            } else {
+               // increment edge 1 on X and edge 2 on Y:
+               count1=xdiff1;    // count for X increment on edge 1
+               count2=ydiff2;    // count for Y increment on edge 2
+            
+               while (count1 && count2) {  
                   // continue drawing until one edge is done
-    			  // calculate edge 1:
-  				  while ((errorterm1 < xdiff1) && (count1 > 0)) 
-                        { 
-                        // finished w/edge 1?
-						if (count1--) 
-                           {     
-                           // count down on edge 1
-						   offset1+=xunit1;  // increment pixel offset
-						   xstart1+=xunit1;
-						   } // end if
-
-  				        errorterm1+=ydiff1; // increment error term
-
- 				        if (errorterm1 < xdiff1) 
-                           {  // if not more than XDIFF
-					       vbuffer[offset1]=(UCHAR)poly->color; // ...plot a pixel
-					       } // end if
-
-					     } // end while
-					
-                  errorterm1-=xdiff1; // if time to increment X, restore error term
-
-			      // calculate edge 2:
-
-				  while ((errorterm2 < xdiff2) && (count2 > 0)) 
-                        {  
-                        // finished w/edge 2?
-						if (count2--) 
-                           {     
-                           // count down on edge 2
-						   offset2+=xunit2;  // increment pixel offset
-						   xstart2+=xunit2;
-						   } // end if
-
-  						  errorterm2+=ydiff2; // increment error term
-
-						  if (errorterm2 < xdiff2) 
-                             {  // if not more than XDIFF
-							 vbuffer[offset2]=(UCHAR)poly->color;  // ...plot a pixel
-						     } // end if
-
-  					       } // end while
-
-					errorterm2-=xdiff2; // if time to increment X, restore error term
-
-			        // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1; // determine length of horizontal line
-
-					if (length < 0) 
-                       { // if negative...
-					   length=-length;       // make it positive
-					   start=offset2;        // and set START to edge 2
-  				       } // end if
-					else 
-                       start=offset1;     // else set START to edge 1
-			 
-              for (int index=start; index < start+length+1; index++)
-                  {  // From edge to edge...
-    			  vbuffer[index]=(UCHAR)poly->color;         // ...draw the line
-                  } // end for index
-
-				offset1+=mempitch;           // advance edge 1 offset to next line
-  			    ystart1++;
-				offset2+=mempitch;           // advance edge 2 offset to next line
-				ystart2++;
-
-   		      } // end if
-
-			} // end if
-			else 
-            {
-  	  	    // increment edge 1 on X and edge 2 on Y:
-		    count1=xdiff1;    // count for X increment on edge 1
-		    count2=ydiff2;    // count for Y increment on edge 2
-			
-            while (count1 && count2) 
-                  {  // continue drawing until one edge is done
-   			         // calculate edge 1:
- 				  while ((errorterm1 < xdiff1) && (count1 > 0)) 
-                        { // finished w/edge 1?
-				   	    if (count1--) 
-                           {
-                           // count down on edge 1
-						   offset1+=xunit1;  // increment pixel offset
-						   xstart1+=xunit1;
-						   } // end if
-
-						errorterm1+=ydiff1; // increment error term
-
-						if (errorterm1 < xdiff1) 
-                           {  // If not more than XDIFF
-						   vbuffer[offset1]=(UCHAR)poly->color; // ...plot a pixel
-						   } // end if
-
-         				} // end while
-
-					errorterm1-=xdiff1; // If time to increment X, restore error term
-
-  			        // calculate edge 2:
-					errorterm2+=xdiff2; // increment error term
-					
-                    if (errorterm2 >= ydiff2)  
-                       { // if time to increment Y...
-					   errorterm2-=ydiff2;        // ...restore error term
-					   offset2+=xunit2;           // ...and advance offset to next pixel
-					   xstart2+=xunit2;
-     				   } // end if
-
-			        count2--;
-
-			        // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1; // determine length of horizontal line
-
-					if (length < 0)  
-                       { // if negative...
-					   length=-length;       // ...make it positive
-					   start=offset2;        // and set START to edge 2
-					   } // end if
-					else 
-                       start=offset1;        // else set START to edge 1
-
-			        for (int index=start; index < start+length+1; index++)  // from edge to edge
-				        {
-                        vbuffer[index]=(UCHAR)poly->color;         // ...draw the line
-                        } // end for index
- 
-            		offset1+=mempitch;           // advance edge 1 offset to next line
-					ystart1++;
-					offset2+=mempitch;           // advance edge 2 offset to next line
-					ystart2++;
-
-				} // end while
-			} // end if
-		} // end if
-		else 
-            {
-			if (xdiff2 > ydiff2) 
-               {
-   		       // increment edge 1 on Y and edge 2 on X:
-
-			   count1=ydiff1;  // count for Y increment on edge 1
-			   count2=xdiff2;  // count for X increment on edge 2
-
-			   while(count1 && count2) 
-                    {  // continue drawing until one edge is done
-			          // calculate edge 1:
-
-					errorterm1+=xdiff1; // Increment error term
-
-					if (errorterm1 >= ydiff1)  
-                       {  // if time to increment Y...
-					   errorterm1-=ydiff1;         // ...restore error term
-					   offset1+=xunit1;            // ...and advance offset to next pixel
-					   xstart1+=xunit1;
-					   } // end if
-
-      			    count1--;
-
-    			    // Calculate edge 2:
-
-					while ((errorterm2 < xdiff2) && (count2 > 0)) 
-                          { // finished w/edge 1?
-						  if (count2--) 
-                             { // count down on edge 2
-							 offset2+=xunit2;  // increment pixel offset
-							 xstart2+=xunit2;
-						     } // end if
-
-						  errorterm2+=ydiff2; // increment error term
-
-						  if (errorterm2 < xdiff2) 
-                             {  // if not more than XDIFF
-							 vbuffer[offset2]=(UCHAR)poly->color; // ...plot a pixel
-						     } // end if
-					       } // end while
-
-					errorterm2-=xdiff2;  // if time to increment X, restore error term
-
-			       // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1; // determine length of horizontal line
-
-					if (length < 0) 
-                       {    // if negative...
-					   length=-length;  // ...make it positive
-					   start=offset2;   // and set START to edge 2
-					   } // end if
-					else 
-                       start=offset1;  // else set START to edge 1
-
-  			        for (int index=start; index < start+length+1; index++) // from edge to edge...
-				        {
-                        vbuffer[index]=(UCHAR)poly->color;      // ...draw the line
-                        } // end for index
-
-					offset1+=mempitch;         // advance edge 1 offset to next line
-					ystart1++;
-					offset2+=mempitch;         // advance edge 2 offset to next line
-					ystart2++;
-
-      		  } // end if
-			} // end if
-			else 
-               {
-			   // increment edge 1 on Y and edge 2 on Y:
-  			   count1=ydiff1;  // count for Y increment on edge 1
-			   count2=ydiff2;  // count for Y increment on edge 2
-
-			   while(count1 && count2) 
-                    {  
-                    // continue drawing until one edge is done
-      			    // calculate edge 1:
-					errorterm1+=xdiff1;  // increment error term
-
-					if (errorterm1 >= ydiff1)  
-                       {                           // if time to increment Y
-					   errorterm1-=ydiff1;         // ...restore error term
-					   offset1+=xunit1;            // ...and advance offset to next pixel
-					   xstart1+=xunit1;
-					   } // end if
-			 
-                    count1--;
-
-  	 		        // calculate edge 2:
-					errorterm2+=xdiff2;            // increment error term
-
-					if (errorterm2 >= ydiff2)  
-                       {                           // if time to increment Y
-					   errorterm2-=ydiff2;         // ...restore error term
-					   offset2+=xunit2;            // ...and advance offset to next pixel
-					   xstart2+=xunit2;
-					   } // end if
-
-       			    --count2;
-
-			        // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1;  // determine length of horizontal line
-
-					if (length < 0) 
-                       {          
-                       // if negative...
-					   length=-length;        // ...make it positive
-					   start=offset2;         // and set START to edge 2
-					   } // end if
-					else 
-                       start=offset1;         // else set START to edge 1
-
-			        for (int index=start; index < start+length+1; index++)   
-                        { // from edge to edge
-				        vbuffer[index]=(UCHAR)poly->color;   // ...draw the linee
-                        } // end for index
-
-					offset1+=mempitch;            // advance edge 1 offset to next line
-					ystart1++;
-					offset2+=mempitch;            // advance edge 2 offset to next line
-					ystart2++;
-
-				} // end while
-
-			} // end else
-
-		} // end if
-
-	    // another edge (at least) is complete. Start next edge, if any.
-		if (!count1) 
-           {                      // if edge 1 is complete...
-		   --edgecount;           // decrement the edge count
-		   startvert1=endvert1;   // make ending vertex into start vertex
-		   --endvert1;            // and get new ending vertex
-		
-           if (endvert1 < 0) 
-              endvert1=poly->num_verts-1; // check for wrap
-
-			xend1=poly->vlist[endvert1].x+poly->x0;  // get x & y of new end vertex
-			yend1=poly->vlist[endvert1].y+poly->y0;
-		    } // end if
-
-		if (!count2) 
-           {                     // if edge 2 is complete...
-		   --edgecount;          // decrement the edge count
-		   startvert2=endvert2;  // make ending vertex into start vertex
-		   endvert2++;           // and get new ending vertex
-		
-           if (endvert2==(poly->num_verts)) 
-              endvert2=0;                // check for wrap
-
-			xend2=poly->vlist[endvert2].x+poly->x0;  // get x & y of new end vertex
-			yend2=poly->vlist[endvert2].y+poly->y0;
-
-		   } // end if
-
-	} // end while
-
-} // end Draw_Filled_Polygon2D
-
-///////////////////////////////////////////////////////////////
-
-void Draw_Filled_Polygon2D16(POLYGON2D_PTR poly, UCHAR *_vbuffer, int mempitch)
-{
-// this function draws a general n sided polygon 
-
-int ydiff1, ydiff2,         // difference between starting x and ending x
-	xdiff1, xdiff2,         // difference between starting y and ending y
-    start,                  // starting offset of line between edges
-	length,                 // distance from edge 1 to edge 2
-	errorterm1, errorterm2, // error terms for edges 1 & 2
-    offset1, offset2,       // offset of current pixel in edges 1 & 2
-	count1, count2,         // increment count for edges 1 & 2
-    xunit1, xunit2;         // unit to advance x offset for edges 1 & 2
-
-
-// recast vbuffer into short version since this is a 16 bit mode
-USHORT *vbuffer = (USHORT *)_vbuffer;
-
-// convert mempitch into WORD or 16bit stride
-mempitch = (mempitch >> 1);
-
-// initialize count of number of edges drawn:
-int edgecount = poly->num_verts-1;
-
-// determine which vertex is at top of polygon:
-
-int firstvert=0;         // start by assuming vertex 0 is at top
-
-int min_y=poly->vlist[0].y; // find y coordinate of vertex 0
-
-for (int index=1; index < poly->num_verts; index++) 
-    {  
-    // Search thru vertices
- 	if ((poly->vlist[index].y) < min_y) 
-        {  
-        // is another vertex higher?
-		firstvert=index;                   
-		min_y=poly->vlist[index].y;
-		} // end if
-
-	} // end for index
-
-// finding starting and ending vertices of first two edges:
-int startvert1=firstvert;      // get starting vertex of edge 1
-int startvert2=firstvert;      // get starting vertex of edge 2
-int xstart1=poly->vlist[startvert1].x+poly->x0;
-int ystart1=poly->vlist[startvert1].y+poly->y0;
-int xstart2=poly->vlist[startvert2].x+poly->x0;
-int ystart2=poly->vlist[startvert2].y+poly->y0;
-int endvert1=startvert1-1;           // get ending vertex of edge 1
-
-if (endvert1 < 0) 
-   endvert1=poly->num_verts-1;    // check for wrap
-
-int xend1=poly->vlist[endvert1].x+poly->x0;      // get x & y coordinates
-int yend1=poly->vlist[endvert1].y+poly->y0;      // of ending vertices
-int endvert2=startvert2+1;           // get ending vertex of edge 2
-
-if (endvert2==(poly->num_verts)) 
-    endvert2=0;  // Check for wrap
-
-int xend2=poly->vlist[endvert2].x+poly->x0;      // get x & y coordinates
-int yend2=poly->vlist[endvert2].y+poly->y0;      // of ending vertices
-
-// draw the polygon:
-
-while (edgecount>0) 
-      {    
-      // continue drawing until all edges drawn
-	  offset1=mempitch*ystart1+xstart1;  // offset of edge 1
-	  offset2=mempitch*ystart2+xstart2;  // offset of edge 2
-	  
-      // initialize error terms
-      // for edges 1 & 2
-      errorterm1=0;        
-	  errorterm2=0;           
-
-      // get absolute value of
-   	  if ((ydiff1=yend1-ystart1) < 0) 
-         ydiff1=-ydiff1;
-
-      // x & y lengths of edges
-	  if ((ydiff2=yend2-ystart2) < 0) 
-         ydiff2=-ydiff2; 
-
-  	  if ((xdiff1=xend1-xstart1) < 0) 
-         {               
-         // get value of length
-		 xunit1=-1;                    // calculate X increment
-		 xdiff1=-xdiff1;
-		 } // end if
-	  else 
-         {
-		 xunit1=1;
-		 } // end else
-
-   	  if ((xdiff2=xend2-xstart2) < 0) 
-         {
-         // Get value of length
-  		 xunit2=-1;                   // calculate X increment
-		 xdiff2=-xdiff2;
-		 } // end else
-	  else 
-         {
-		 xunit2=1;
-		 } // end else
-
-	  // choose which of four routines to use
-	  if (xdiff1 > ydiff1) 
-         {    
-         // if x length of edge 1 is greater than y length
-		 if (xdiff2 > ydiff2) 
-            {  
-            // if X length of edge 2 is greater than y length
-
-			// increment edge 1 on X and edge 2 on X:
-			count1=xdiff1;    // count for x increment on edge 1
-			count2=xdiff2;    // count for x increment on edge 2
-
-			while (count1 && count2) 
-                  {  
+                  // calculate edge 1:
+                  while ((errorterm1 < xdiff1) && (count1 > 0)) { 
+                     // finished w/edge 1?
+                     if (count1--) {
+                        // count down on edge 1
+                        offset1+=xunit1;  // increment pixel offset
+                        xstart1+=(xunit1 / 4); //// update x coordiation
+                     }
+
+                     errorterm1+=ydiff1; // increment error term
+
+                     if (errorterm1 < xdiff1) {  
+                        // If not more than XDIFF
+                     vbuffer[offset1] = blue;       // blue
+                     vbuffer[offset1 + 1] = green;  // green
+                     vbuffer[offset1 + 2] = red;    // red
+                     vbuffer[offset1 + 3] = alpha;  // alpha
+                     }
+                  }
+
+                  errorterm1-=xdiff1; // If time to increment X, restore error term
+
+                  // calculate edge 2:
+                  errorterm2+=xdiff2; // increment error term
+                  
+                  if (errorterm2 >= ydiff2)  { 
+                     // if time to increment Y...
+                     errorterm2-=ydiff2;        // ...restore error term
+                     offset2+=xunit2;           // ...and advance offset to next pixel
+                     xstart2+=(xunit2 / 4);     // update x coordiation
+                  }
+
+                  count2--;
+
+                  // draw line from edge 1 to edge 2:
+
+                  length=(offset2 - offset1) / 4; // determine length of horizontal line
+
+                  if (length < 0)  { 
+                     // if negative...
+                     length=-length;       // ...make it positive
+                     start=offset2;        // and set START to edge 2
+                  } else 
+                     start=offset1;        // else set START to edge 1
+
+                     // from edge to edge
+                     // ...draw the line
+               for (int i = 0; i <= length; i++) {
+                  vbuffer[start + i*4] = blue;       // blue
+                  vbuffer[start + i*4 + 1] = green;  // green
+                  vbuffer[start + i*4 + 2] = red;    // red
+                  vbuffer[start + i*4 + 3] = alpha;  // alpha
+                  }  
+                  
+                  offset1+=mempitch;           // advance edge 1 offset to next line
+                  ystart1++;
+                  offset2+=mempitch;           // advance edge 2 offset to next line
+                  ystart2++;
+
+               }
+            }
+         } else {
+            if (xdiff2 > ydiff2) {
+               // increment edge 1 on Y and edge 2 on X:
+
+               count1=ydiff1;  // count for Y increment on edge 1
+               count2=xdiff2;  // count for X increment on edge 2
+
+               while(count1 && count2) {
                   // continue drawing until one edge is done
-    			  // calculate edge 1:
-  				  while ((errorterm1 < xdiff1) && (count1 > 0)) 
-                        { 
+                  // calculate edge 1:
+
+                  errorterm1+=xdiff1; // Increment error term
+
+                  if (errorterm1 >= ydiff1) { 
+                     // if time to increment Y...
+                     errorterm1-=ydiff1;         // ...restore error term
+                     offset1+=xunit1;            // ...and advance offset to next pixel
+                     xstart1+=(xunit1 / 4);// update x coordiation
+                  }
+
+                  count1--;
+
+                  // Calculate edge 2:
+
+                  while ((errorterm2 < xdiff2) && (count2 > 0)) {
                         // finished w/edge 1?
-						if (count1--) 
-                           {     
-                           // count down on edge 1
-						   offset1+=xunit1;  // increment pixel offset
-						   xstart1+=xunit1;
-						   } // end if
-
-  				        errorterm1+=ydiff1; // increment error term
-
- 				        if (errorterm1 < xdiff1) 
-                           {  // if not more than XDIFF
-					       vbuffer[offset1]=(USHORT)poly->color; // ...plot a pixel
-					       } // end if
-
-					     } // end while
-					
-                  errorterm1-=xdiff1; // if time to increment X, restore error term
-
-			      // calculate edge 2:
-
-				  while ((errorterm2 < xdiff2) && (count2 > 0)) 
-                        {  
-                        // finished w/edge 2?
-						if (count2--) 
-                           {     
-                           // count down on edge 2
-						   offset2+=xunit2;  // increment pixel offset
-						   xstart2+=xunit2;
-						   } // end if
-
-  						  errorterm2+=ydiff2; // increment error term
-
-						  if (errorterm2 < xdiff2) 
-                             {  // if not more than XDIFF
-							 vbuffer[offset2]=(USHORT)poly->color;  // ...plot a pixel
-						     } // end if
-
-  					       } // end while
-
-					errorterm2-=xdiff2; // if time to increment X, restore error term
-
-			        // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1; // determine length of horizontal line
-
-					if (length < 0) 
-                       { // if negative...
-					   length=-length;       // make it positive
-					   start=offset2;        // and set START to edge 2
-  				       } // end if
-					else 
-                       start=offset1;     // else set START to edge 1
-			 
-              for (int index=start; index < start+length+1; index++)
-                  {  // From edge to edge...
-    			  vbuffer[index]=(USHORT)poly->color;         // ...draw the line
-                  } // end for index
-
-				offset1+=mempitch;           // advance edge 1 offset to next line
-  			    ystart1++;
-				offset2+=mempitch;           // advance edge 2 offset to next line
-				ystart2++;
-
-   		      } // end if
-
-			} // end if
-			else 
-            {
-  	  	    // increment edge 1 on X and edge 2 on Y:
-		    count1=xdiff1;    // count for X increment on edge 1
-		    count2=ydiff2;    // count for Y increment on edge 2
-			
-            while (count1 && count2) 
-                  {  // continue drawing until one edge is done
-   			         // calculate edge 1:
- 				  while ((errorterm1 < xdiff1) && (count1 > 0)) 
-                        { // finished w/edge 1?
-				   	    if (count1--) 
-                           {
-                           // count down on edge 1
-						   offset1+=xunit1;  // increment pixel offset
-						   xstart1+=xunit1;
-						   } // end if
-
-						errorterm1+=ydiff1; // increment error term
-
-						if (errorterm1 < xdiff1) 
-                           {  // If not more than XDIFF
-						   vbuffer[offset1]=(USHORT)poly->color; // ...plot a pixel
-						   } // end if
-
-         				} // end while
-
-					errorterm1-=xdiff1; // If time to increment X, restore error term
-
-  			        // calculate edge 2:
-					errorterm2+=xdiff2; // increment error term
-					
-                    if (errorterm2 >= ydiff2)  
-                       { // if time to increment Y...
-					   errorterm2-=ydiff2;        // ...restore error term
-					   offset2+=xunit2;           // ...and advance offset to next pixel
-					   xstart2+=xunit2;
-     				   } // end if
-
-			        count2--;
-
-			        // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1; // determine length of horizontal line
-
-					if (length < 0)  
-                       { // if negative...
-					   length=-length;       // ...make it positive
-					   start=offset2;        // and set START to edge 2
-					   } // end if
-					else 
-                       start=offset1;        // else set START to edge 1
-
-			        for (int index=start; index < start+length+1; index++)  // from edge to edge
-				        {
-                        vbuffer[index]=(USHORT)poly->color;         // ...draw the line
-                        } // end for index
- 
-            		offset1+=mempitch;           // advance edge 1 offset to next line
-					ystart1++;
-					offset2+=mempitch;           // advance edge 2 offset to next line
-					ystart2++;
-
-				} // end while
-			} // end if
-		} // end if
-		else 
-            {
-			if (xdiff2 > ydiff2) 
-               {
-   		       // increment edge 1 on Y and edge 2 on X:
-
-			   count1=ydiff1;  // count for Y increment on edge 1
-			   count2=xdiff2;  // count for X increment on edge 2
-
-			   while(count1 && count2) 
-                    {  // continue drawing until one edge is done
-			          // calculate edge 1:
-
-					errorterm1+=xdiff1; // Increment error term
-
-					if (errorterm1 >= ydiff1)  
-                       {  // if time to increment Y...
-					   errorterm1-=ydiff1;         // ...restore error term
-					   offset1+=xunit1;            // ...and advance offset to next pixel
-					   xstart1+=xunit1;
-					   } // end if
-
-      			    count1--;
-
-    			    // Calculate edge 2:
-
-					while ((errorterm2 < xdiff2) && (count2 > 0)) 
-                          { // finished w/edge 1?
-						  if (count2--) 
-                             { // count down on edge 2
-							 offset2+=xunit2;  // increment pixel offset
-							 xstart2+=xunit2;
-						     } // end if
-
-						  errorterm2+=ydiff2; // increment error term
-
-						  if (errorterm2 < xdiff2) 
-                             {  // if not more than XDIFF
-							 vbuffer[offset2]=(USHORT)poly->color; // ...plot a pixel
-						     } // end if
-					       } // end while
-
-					errorterm2-=xdiff2;  // if time to increment X, restore error term
-
-			       // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1; // determine length of horizontal line
-
-					if (length < 0) 
-                       {    // if negative...
-					   length=-length;  // ...make it positive
-					   start=offset2;   // and set START to edge 2
-					   } // end if
-					else 
-                       start=offset1;  // else set START to edge 1
-
-  			        for (int index=start; index < start+length+1; index++) // from edge to edge...
-				        {
-                        vbuffer[index]=(USHORT)poly->color;      // ...draw the line
-                        } // end for index
-
-					offset1+=mempitch;         // advance edge 1 offset to next line
-					ystart1++;
-					offset2+=mempitch;         // advance edge 2 offset to next line
-					ystart2++;
-
-      		  } // end if
-			} // end if
-			else 
-               {
-			   // increment edge 1 on Y and edge 2 on Y:
-  			   count1=ydiff1;  // count for Y increment on edge 1
-			   count2=ydiff2;  // count for Y increment on edge 2
-
-			   while(count1 && count2) 
-                    {  
-                    // continue drawing until one edge is done
-      			    // calculate edge 1:
-					errorterm1+=xdiff1;  // increment error term
-
-					if (errorterm1 >= ydiff1)  
-                       {                           // if time to increment Y
-					   errorterm1-=ydiff1;         // ...restore error term
-					   offset1+=xunit1;            // ...and advance offset to next pixel
-					   xstart1+=xunit1;
-					   } // end if
-			 
-                    count1--;
-
-  	 		        // calculate edge 2:
-					errorterm2+=xdiff2;            // increment error term
-
-					if (errorterm2 >= ydiff2)  
-                       {                           // if time to increment Y
-					   errorterm2-=ydiff2;         // ...restore error term
-					   offset2+=xunit2;            // ...and advance offset to next pixel
-					   xstart2+=xunit2;
-					   } // end if
-
-       			    --count2;
-
-			        // draw line from edge 1 to edge 2:
-
-					length=offset2-offset1;  // determine length of horizontal line
-
-					if (length < 0) 
-                       {          
-                       // if negative...
-					   length=-length;        // ...make it positive
-					   start=offset2;         // and set START to edge 2
-					   } // end if
-					else 
-                       start=offset1;         // else set START to edge 1
-
-			        for (int index=start; index < start+length+1; index++)   
-                        { // from edge to edge
-				        vbuffer[index]=(USHORT)poly->color;   // ...draw the linee
-                        } // end for index
-
-					offset1+=mempitch;            // advance edge 1 offset to next line
-					ystart1++;
-					offset2+=mempitch;            // advance edge 2 offset to next line
-					ystart2++;
-
-				} // end while
-
-			} // end else
-
-		} // end if
-
-	    // another edge (at least) is complete. Start next edge, if any.
-		if (!count1) 
-           {                      // if edge 1 is complete...
-		   --edgecount;           // decrement the edge count
-		   startvert1=endvert1;   // make ending vertex into start vertex
-		   --endvert1;            // and get new ending vertex
-		
-           if (endvert1 < 0) 
-              endvert1=poly->num_verts-1; // check for wrap
-
-			xend1=poly->vlist[endvert1].x+poly->x0;  // get x & y of new end vertex
-			yend1=poly->vlist[endvert1].y+poly->y0;
-		    } // end if
-
-		if (!count2) 
-           {                     // if edge 2 is complete...
-		   --edgecount;          // decrement the edge count
-		   startvert2=endvert2;  // make ending vertex into start vertex
-		   endvert2++;           // and get new ending vertex
-		
-           if (endvert2==(poly->num_verts)) 
-              endvert2=0;                // check for wrap
-
-			xend2=poly->vlist[endvert2].x+poly->x0;  // get x & y of new end vertex
-			yend2=poly->vlist[endvert2].y+poly->y0;
-
-		   } // end if
-
-	} // end while
-
-} // end Draw_Filled_Polygon2D16
-
-///////////////////////////////////////////////////////////////
-
-void Build_Sin_Cos_Tables(void)
-{
-  
+                     if (count2--) {
+                        // count down on edge 2
+                        offset2+=xunit2;  // increment pixel offset
+                        xstart2+=(xunit2 / 4);// update x coordiation
+                     }
+
+                     errorterm2+=ydiff2; // increment error term
+
+                     if (errorterm2 < xdiff2) {
+                        // if not more than XDIFF
+                     vbuffer[offset2] = blue;       // blue
+                     vbuffer[offset2 + 1] = green;  // green
+                     vbuffer[offset2 + 2] = red;    // red
+                     vbuffer[offset2 + 3] = alpha;  // alpha                        
+                     }
+                  }
+
+                  errorterm2-=xdiff2;  // if time to increment X, restore error term
+
+                  // draw line from edge 1 to edge 2:
+
+                  length=(offset2 - offset1) / 4; // determine length of horizontal line
+
+                  if (length < 0) {
+                     // if negative...
+                     length=-length;  // ...make it positive
+                     start=offset2;   // and set START to edge 2
+                  } else 
+                     start=offset1;  // else set START to edge 1
+
+                     // from edge to edge...
+                     // ...draw the line
+                 for (int i = 0; i <= length; i++) {
+                  vbuffer[start + i*4] = blue;       // blue
+                  vbuffer[start + i*4 + 1] = green;  // green
+                  vbuffer[start + i*4 + 2] = red;    // red
+                  vbuffer[start + i*4 + 3] = alpha;  // alpha
+                  }
+
+                  offset1+=mempitch;         // advance edge 1 offset to next line
+                  ystart1++;
+                  offset2+=mempitch;         // advance edge 2 offset to next line
+                  ystart2++;
+
+               }
+            } else {
+               // increment edge 1 on Y and edge 2 on Y:
+               count1=ydiff1;  // count for Y increment on edge 1
+               count2=ydiff2;  // count for Y increment on edge 2
+
+               while(count1 && count2) {  
+                  // continue drawing until one edge is done
+                  // calculate edge 1:
+                  errorterm1+=xdiff1;  // increment error term
+
+                  if (errorterm1 >= ydiff1) {
+                     // if time to increment Y
+                     errorterm1-=ydiff1;         // ...restore error term
+                     offset1+=xunit1;            // ...and advance offset to next pixel
+                     xstart1+=(xunit1 / 4);
+                  }
+            
+                  count1--;
+
+                  // calculate edge 2:
+                  errorterm2+=xdiff2;            // increment error term
+
+                  if (errorterm2 >= ydiff2) {  
+                     // if time to increment Y
+                     errorterm2-=ydiff2;         // ...restore error term
+                     offset2+=xunit2;            // ...and advance offset to next pixel
+                     xstart2+=(xunit2 / 4);
+                  }
+
+                  --count2;
+
+                  // draw line from edge 1 to edge 2:
+
+                  length=(offset2 - offset1) / 4;  // determine length of horizontal line
+
+                  if (length < 0) {          
+                        // if negative...
+                     length=-length;        // ...make it positive
+                     start=offset2;         // and set START to edge 2
+                  } else 
+                     start=offset1;         // else set START to edge 1
+
+                        // from edge to edge
+                        // ...draw the line
+	               for (int i = 0; i <= length; i++) {  
+	                  vbuffer[start + i*4] = blue;       // blue
+	                  vbuffer[start + i*4 + 1] = green;  // green
+	                  vbuffer[start + i*4 + 2] = red;    // red
+	                  vbuffer[start + i*4 + 3] = alpha;  // alpha
+                  }
+
+                  offset1+=mempitch;            // advance edge 1 offset to next line
+                  ystart1++;
+                  offset2+=mempitch;            // advance edge 2 offset to next line
+                  ystart2++;
+
+               }
+
+            }
+
+         }
+
+         // another edge (at least) is complete. Start next edge, if any.
+         if (!count1) {
+                                    // if edge 1 is complete...
+            --edgecount;           // decrement the edge count
+            startvert1=endvert1;   // make ending vertex into start vertex
+            --endvert1;            // and get new ending vertex
+         
+            if (endvert1 < 0) 
+               endvert1=poly->num_verts-1; // check for wrap
+
+            xend1=poly->vlist[endvert1].x+poly->x0;  // get x & y of new end vertex
+            yend1=poly->vlist[endvert1].y+poly->y0;
+         }
+
+         if (!count2) {
+                                 // if edge 2 is complete...
+            --edgecount;          // decrement the edge count
+            startvert2=endvert2;  // make ending vertex into start vertex
+            endvert2++;           // and get new ending vertex
+         
+            if (endvert2==(poly->num_verts)) 
+               endvert2=0;                // check for wrap
+
+            xend2=poly->vlist[endvert2].x+poly->x0;  // get x & y of new end vertex
+            yend2=poly->vlist[endvert2].y+poly->y0;
+         }
+   }
+}
+
 // create sin/cos lookup table
 // note the creation of one extra element; 360
 // this helps with logic in using the tables
+void Build_Sin_Cos_Tables(void) {
+  
+   // generate the tables 0 - 360 inclusive
+   for (int ang = 0; ang <= 360; ang++) {
+      // convert ang to radians
+      float theta = (float)ang*PI/(float)180;
 
-// generate the tables 0 - 360 inclusive
-for (int ang = 0; ang <= 360; ang++)
-    {
-    // convert ang to radians
-    float theta = (float)ang*PI/(float)180;
+      // insert next entry into table
+      cos_look[ang] = cos(theta);
+      sin_look[ang] = sin(theta);
+   }
+}
 
-    // insert next entry into table
-    cos_look[ang] = cos(theta);
-    sin_look[ang] = sin(theta);
+/* translates the center of a polygon */
+int Translate_Polygon2D(POLYGON2D_PTR poly, int dx, int dy) {
 
-    } // end for ang
+   // test for valid pointer
+   if (!poly)
+      return 0;
 
-} // end Build_Sin_Cos_Tables
+   // translate
+   poly->x0+=dx;
+   poly->y0+=dy;
 
-//////////////////////////////////////////////////////////////
+   return 1;
+} 
 
-int Translate_Polygon2D(POLYGON2D_PTR poly, int dx, int dy)
-{
-// this function translates the center of a polygon
+/* rotates the local coordinates of the polygon */
+int Rotate_Polygon2D(POLYGON2D_PTR poly, int theta) {
 
-// test for valid pointer
-if (!poly)
-   return(0);
+   // test for valid pointer
+   if (!poly) return(0);
 
-// translate
-poly->x0+=dx;
-poly->y0+=dy;
+	// test for negative rotation angle
+	if (theta < 0)
+	   theta+=360;
+   // loop and rotate each point, very crude, no lookup!!!
+   for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++) {
 
-// return success
-return 1;
+      // perform rotation
+      float xr = (float)poly->vlist[curr_vert].x*cos_look[theta] - 
+                     (float)poly->vlist[curr_vert].y*sin_look[theta];
 
-} // end Translate_Polygon2D
+      float yr = (float)poly->vlist[curr_vert].x*sin_look[theta] + 
+                     (float)poly->vlist[curr_vert].y*cos_look[theta];
 
-///////////////////////////////////////////////////////////////
+      // store result back
+      poly->vlist[curr_vert].x = xr;
+      poly->vlist[curr_vert].y = yr;
 
-int Rotate_Polygon2D(POLYGON2D_PTR poly, int theta)
-{
-// this function rotates the local coordinates of the polygon
+   }
+   return 1;
+}
 
-// test for valid pointer
-if (!poly)
-   return(0);
+/* scalesthe local coordinates of the polygon */
+int Scale_Polygon2D(POLYGON2D_PTR poly, float sx, float sy) {
 
-// test for negative rotation angle
-if (theta < 0)
-   theta+=360;
+   // test for valid pointer
+   if (!poly) return(0);
 
-// loop and rotate each point, very crude, no lookup!!!
-for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++)
-    {
+   // loop and scale each point
+   for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++) {
+      // scale and store result back
+      poly->vlist[curr_vert].x *= sx;
+      poly->vlist[curr_vert].y *= sy;
 
-    // perform rotation
-    float xr = (float)poly->vlist[curr_vert].x*cos_look[theta] - 
-                    (float)poly->vlist[curr_vert].y*sin_look[theta];
+   }
+   return 1;
+}
 
-    float yr = (float)poly->vlist[curr_vert].x*sin_look[theta] + 
-                    (float)poly->vlist[curr_vert].y*cos_look[theta];
+int Draw_Polygon2D(POLYGON2D_PTR poly, UCHAR *vbuffer, int lpitch) {
 
-    // store result back
-    poly->vlist[curr_vert].x = xr;
-    poly->vlist[curr_vert].y = yr;
+   // test if the polygon is visible
+   if (poly->state) {
+      int index; // loop index
 
-    } // end for curr_vert
-
-// return success
-return 1;
-
-} // end Rotate_Polygon2D
-
-////////////////////////////////////////////////////////
-
-int Scale_Polygon2D(POLYGON2D_PTR poly, float sx, float sy)
-{
-// this function scalesthe local coordinates of the polygon
-
-// test for valid pointer
-if (!poly)
-   return(0);
-
-// loop and scale each point
-for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++)
-    {
-    // scale and store result back
-    poly->vlist[curr_vert].x *= sx;
-    poly->vlist[curr_vert].y *= sy;
-
-    } // end for curr_vert
-
-// return success
-return 1;
-
-} // end Scale_Polygon2D
-
-///////////////////////////////////////////////////////////
-
-int Draw_Polygon2D16(POLYGON2D_PTR poly, UCHAR *vbuffer, int lpitch)
-{
-// this function draws a POLYGON2D based on 
-
-// test if the polygon is visible
-if (poly->state)
-   {
-   // loop thru and draw a line from vertices 1 to n
-   for (int index=0; index < poly->num_verts-1; index++)
-        {
-        // draw line from ith to ith+1 vertex
-        Draw_Clip_Line16(poly->vlist[index].x+poly->x0, 
-                         poly->vlist[index].y+poly->y0,
-                         poly->vlist[index+1].x+poly->x0, 
-                         poly->vlist[index+1].y+poly->y0,
-                         poly->color,
-                         vbuffer, lpitch);
-
-        } // end for
-
-       // now close up polygon
-       // draw line from last vertex to 0th
-       Draw_Clip_Line16(poly->vlist[0].x+poly->x0, 
-                        poly->vlist[0].y+poly->y0,
-                        poly->vlist[index].x+poly->x0, 
+      // loop thru and draw a line from vertices 1 to n
+      for (index=0; index < poly->num_verts-1; index++) {
+         // draw line from ith to ith+1 vertex
+         Draw_Clip_Line(poly->vlist[index].x+poly->x0, 
                         poly->vlist[index].y+poly->y0,
+                        poly->vlist[index+1].x+poly->x0, 
+                        poly->vlist[index+1].y+poly->y0,
                         poly->color,
                         vbuffer, lpitch);
+      }
 
-   // return success
-   return 1;
-   } // end if
-else 
-   return(0);
+      // now close up polygon
+      // draw line from last vertex to 0th
+      Draw_Clip_Line(poly->vlist[0].x+poly->x0, 
+                     poly->vlist[0].y+poly->y0,
+                     poly->vlist[index].x+poly->x0, 
+                     poly->vlist[index].y+poly->y0,
+                     poly->color,
+                     vbuffer, lpitch);
 
-} // end Draw_Polygon2D16
+      return 1;
+   } else 
+      return 0;
 
-///////////////////////////////////////////////////////////
-
-int Draw_Polygon2D(POLYGON2D_PTR poly, UCHAR *vbuffer, int lpitch)
-{
-// this function draws a POLYGON2D based on 
-
-// test if the polygon is visible
-if (poly->state)
-   {
-   // loop thru and draw a line from vertices 1 to n
-   for (int index=0; index < poly->num_verts-1; index++)
-        {
-        // draw line from ith to ith+1 vertex
-        Draw_Clip_Line(poly->vlist[index].x+poly->x0, 
-                       poly->vlist[index].y+poly->y0,
-                       poly->vlist[index+1].x+poly->x0, 
-                       poly->vlist[index+1].y+poly->y0,
-                       poly->color,
-                       vbuffer, lpitch);
-
-        } // end for
-
-       // now close up polygon
-       // draw line from last vertex to 0th
-       Draw_Clip_Line(poly->vlist[0].x+poly->x0, 
-                      poly->vlist[0].y+poly->y0,
-                      poly->vlist[index].x+poly->x0, 
-                      poly->vlist[index].y+poly->y0,
-                      poly->color,
-                      vbuffer, lpitch);
-
-   // return success
-   return 1;
-   } // end if
-else 
-   return(0);
-
-} // end Draw_Polygon2D
-
-///////////////////////////////////////////////////////////////
+}
 
 // these are the matrix versions, note they are more inefficient for
 // single transforms, but their power comes into play when you concatenate
 // multiple transformations, not to mention that all transforms are accomplished
 // with the same code, just the matrix differs
+int Translate_Polygon2D_Mat(POLYGON2D_PTR poly, int dx, int dy) {
 
-int Translate_Polygon2D_Mat(POLYGON2D_PTR poly, int dx, int dy)
-{
-// this function translates the center of a polygon by using a matrix multiply
-// on the the center point, this is incredibly inefficient, but for educational purposes
-// if we had an object that wasn't in local coordinates then it would make more sense to
-// use a matrix, but since the origin of the object is at x0,y0 then 2 lines of code can
-// translate, but lets do it the hard way just to see :)
+   // test for valid pointer
+   if (!poly)
+      return(0);
 
-// test for valid pointer
-if (!poly)
-   return(0);
+   MATRIX3X2 mt; // used to hold translation transform matrix
 
-MATRIX3X2 mt; // used to hold translation transform matrix
+   // initialize the matrix with translation values dx dy
+   Mat_Init_3X2(&mt,1,0, 0,1, dx, dy); 
 
-// initialize the matrix with translation values dx dy
-Mat_Init_3X2(&mt,1,0, 0,1, dx, dy); 
+   // create a 1x2 matrix to do the transform
+   MATRIX1X2 p0 = {(float)poly->x0, (float)poly->y0};
+   MATRIX1X2 p1 = {0,0}; // this will hold result
 
-// create a 1x2 matrix to do the transform
-MATRIX1X2 p0 = {poly->x0, poly->y0};
-MATRIX1X2 p1 = {0,0}; // this will hold result
+   // now translate via a matrix multiply
+   Mat_Mul_1X2_3X2(&p0, &mt, &p1);
 
-// now translate via a matrix multiply
-Mat_Mul_1X2_3X2(&p0, &mt, &p1);
+   // now copy the result back into polygon
+   poly->x0 = p1.M[0];
+   poly->y0 = p1.M[1];
 
-// now copy the result back into polygon
-poly->x0 = p1.M[0];
-poly->y0 = p1.M[1];
+   return 1;
+}
 
-// return success
-return 1;
+/* rotates the local coordinates of the polygo */
+int Rotate_Polygon2D_Mat(POLYGON2D_PTR poly, int theta) {
 
-} // end Translate_Polygon2D_Mat
+   // test for valid pointer
+   if (!poly)
+      return(0);
 
-///////////////////////////////////////////////////////////////
+   // test for negative rotation angle
+   if (theta < 0)
+      theta+=360;
 
-int Rotate_Polygon2D_Mat(POLYGON2D_PTR poly, int theta)
-{
-// this function rotates the local coordinates of the polygon
+   MATRIX3X2 mr; // used to hold rotation transform matrix
 
-// test for valid pointer
-if (!poly)
-   return(0);
+   // initialize the matrix with translation values dx dy
+   Mat_Init_3X2(&mr,cos_look[theta],sin_look[theta], 
+                  -sin_look[theta],cos_look[theta], 
+                     0, 0); 
 
-// test for negative rotation angle
-if (theta < 0)
-   theta+=360;
+   // loop and rotate each point, very crude, no lookup!!!
+   for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++) {
+      // create a 1x2 matrix to do the transform
+      MATRIX1X2 p0 = {poly->vlist[curr_vert].x, poly->vlist[curr_vert].y};
+      MATRIX1X2 p1 = {0,0}; // this will hold result
 
-MATRIX3X2 mr; // used to hold rotation transform matrix
+      // now rotate via a matrix multiply
+      Mat_Mul_1X2_3X2(&p0, &mr, &p1);
 
-// initialize the matrix with translation values dx dy
-Mat_Init_3X2(&mr,cos_look[theta],sin_look[theta], 
-                 -sin_look[theta],cos_look[theta], 
-                  0, 0); 
+      // now copy the result back into vertex
+      poly->vlist[curr_vert].x = p1.M[0];
+      poly->vlist[curr_vert].y = p1.M[1];
 
-// loop and rotate each point, very crude, no lookup!!!
-for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++)
-    {
-    // create a 1x2 matrix to do the transform
-    MATRIX1X2 p0 = {poly->vlist[curr_vert].x, poly->vlist[curr_vert].y};
-    MATRIX1X2 p1 = {0,0}; // this will hold result
+   }
+      
+   return 1;
+}
 
-    // now rotate via a matrix multiply
-    Mat_Mul_1X2_3X2(&p0, &mr, &p1);
-
-    // now copy the result back into vertex
-    poly->vlist[curr_vert].x = p1.M[0];
-    poly->vlist[curr_vert].y = p1.M[1];
-
-    } // end for curr_vert
-
-// return success
-return 1;
-
-} // end Rotate_Polygon2D_Mat
-
-////////////////////////////////////////////////////////
-
+/* scales the local coordinates of the polygon */
 int Scale_Polygon2D_Mat(POLYGON2D_PTR poly, float sx, float sy)
 {
-// this function scalesthe local coordinates of the polygon
+   // test for valid pointer
+   if (!poly)
+      return(0);
 
-// test for valid pointer
-if (!poly)
-   return(0);
+   MATRIX3X2 ms; // used to hold scaling transform matrix
 
+   // initialize the matrix with translation values dx dy
+   Mat_Init_3X2(&ms,sx,0, 
+                  0,sy, 
+                  0, 0); 
 
-MATRIX3X2 ms; // used to hold scaling transform matrix
+   // loop and scale each point
+   for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++) {
+      // scale and store result back
+      
+      // create a 1x2 matrix to do the transform
+      MATRIX1X2 p0 = {poly->vlist[curr_vert].x, poly->vlist[curr_vert].y};
+      MATRIX1X2 p1 = {0,0}; // this will hold result
 
-// initialize the matrix with translation values dx dy
-Mat_Init_3X2(&ms,sx,0, 
-                 0,sy, 
-                 0, 0); 
+      // now scale via a matrix multiply
+      Mat_Mul_1X2_3X2(&p0, &ms, &p1);
 
+      // now copy the result back into vertex
+      poly->vlist[curr_vert].x = p1.M[0];
+      poly->vlist[curr_vert].y = p1.M[1];
 
-// loop and scale each point
-for (int curr_vert = 0; curr_vert < poly->num_verts; curr_vert++)
-    {
-    // scale and store result back
-    
-    // create a 1x2 matrix to do the transform
-    MATRIX1X2 p0 = {poly->vlist[curr_vert].x, poly->vlist[curr_vert].y};
-    MATRIX1X2 p1 = {0,0}; // this will hold result
+   }
 
-    // now scale via a matrix multiply
-    Mat_Mul_1X2_3X2(&p0, &ms, &p1);
+   return 1;
+} 
 
-    // now copy the result back into vertex
-    poly->vlist[curr_vert].x = p1.M[0];
-    poly->vlist[curr_vert].y = p1.M[1];
-
-    } // end for curr_vert
-
-// return success
-return 1;
-
-} // end Scale_Polygon2D_Mat
-
-///////////////////////////////////////////////////////////
-
+// this function multiplies two matrices together and 
+// and stores the result
 int Mat_Mul_3X3(MATRIX3X3_PTR ma, 
                MATRIX3X3_PTR mb,
                MATRIX3X3_PTR mprod)
 {
-// this function multiplies two matrices together and 
-// and stores the result
 
-for (int row=0; row<3; row++)
-    {
-    for (int col=0; col<3; col++)
-        {
-        // compute dot product from row of ma 
-        // and column of mb
+   for (int row=0; row<3; row++) {
+      for (int col=0; col<3; col++) {
+         // compute dot product from row of ma 
+         // and column of mb
 
-        float sum = 0; // used to hold result
+         float sum = 0; // used to hold result
 
-        for (int index=0; index<3; index++)
-             {
-             // add in next product pair
-             sum+=(ma->M[row][index]*mb->M[index][col]);
-             } // end for index
+         for (int index=0; index<3; index++) {
+               // add in next product pair
+               sum+=(ma->M[row][index]*mb->M[index][col]);
+         }
 
-        // insert resulting row,col element
-        mprod->M[row][col] = sum;
+         // insert resulting row,col element
+         mprod->M[row][col] = sum;
 
-        } // end for col
+         }
 
-    } // end for row
+      }
 
-return 1;
+      return 1;
+}
 
-} // end Mat_Mul_3X3
-
-////////////////////////////////////////////////////////////////
-
+// this function multiplies a 1x3 matrix against a 
+// 3x3 matrix - ma*mb and stores the result
 int Mat_Mul_1X3_3X3(MATRIX1X3_PTR ma, 
                    MATRIX3X3_PTR mb,
                    MATRIX1X3_PTR mprod)
 {
-// this function multiplies a 1x3 matrix against a 
-// 3x3 matrix - ma*mb and stores the result
 
-    for (int col=0; col<3; col++)
-        {
+    for (int col=0; col<3; col++) {
         // compute dot product from row of ma 
         // and column of mb
 
         float sum = 0; // used to hold result
 
-        for (int index=0; index<3; index++)
-             {
-             // add in next product pair
-             sum+=(ma->M[index]*mb->M[index][col]);
-             } // end for index
+        for (int index=0; index<3; index++) {
+            // add in next product pair
+            sum+=(ma->M[index]*mb->M[index][col]);
+         }
 
         // insert resulting col element
         mprod->M[col] = sum;
 
-        } // end for col
+    }
+   return 1;
+}
 
-return 1;
-
-} // end Mat_Mul_1X3_3X3
-
-////////////////////////////////////////////////////////////////
-
-int Mat_Mul_1X2_3X2(MATRIX1X2_PTR ma, 
-                   MATRIX3X2_PTR mb,
-                   MATRIX1X2_PTR mprod)
-{
 // this function multiplies a 1x2 matrix against a 
 // 3x2 matrix - ma*mb and stores the result
 // using a dummy element for the 3rd element of the 1x2 
 // to make the matrix multiply valid i.e. 1x3 X 3x2
+int Mat_Mul_1X2_3X2(MATRIX1X2_PTR ma, 
+                   MATRIX3X2_PTR mb,
+                   MATRIX1X2_PTR mprod)
+{
 
-    for (int col=0; col<2; col++)
-        {
-        // compute dot product from row of ma 
-        // and column of mb
+    for (int col=0; col<2; col++) {
+      // compute dot product from row of ma 
+      // and column of mb
 
-        float sum = 0; // used to hold result
+      float sum = 0; // used to hold result
+      int index;
+      for (index=0; index<2; index++) {
+            // add in next product pair
+            sum+=(ma->M[index]*mb->M[index][col]);
+      }
 
-        for (int index=0; index<2; index++)
-             {
-             // add in next product pair
-             sum+=(ma->M[index]*mb->M[index][col]);
-             } // end for index
+      // add in last element * 1 
+      sum+= mb->M[index][col];
 
-        // add in last element * 1 
-        sum+= mb->M[index][col];
+      // insert resulting col element
+      mprod->M[col] = sum;
+   }
+   return 1;
+}
 
-        // insert resulting col element
-        mprod->M[col] = sum;
-
-        } // end for col
-
-return 1;
-
-} // end Mat_Mul_1X2_3X2
-
-//////////////////////////////////////////////////////////////
-
+// this function fills a 3x2 matrix with the sent data in row major form
 inline int Mat_Init_3X2(MATRIX3X2_PTR ma, 
                         float m00, float m01,
                         float m10, float m11,
                         float m20, float m21)
 {
-// this function fills a 3x2 matrix with the sent data in row major form
-ma->M[0][0] = m00; ma->M[0][1] = m01; 
-ma->M[1][0] = m10; ma->M[1][1] = m11; 
-ma->M[2][0] = m20; ma->M[2][1] = m21; 
+   ma->M[0][0] = m00; ma->M[0][1] = m01; 
+   ma->M[1][0] = m10; ma->M[1][1] = m11; 
+   ma->M[2][0] = m20; ma->M[2][1] = m21; 
 
-// return success
-return 1;
+   // return success
+   return 1;
 
-} // end Mat_Init_3X2
-
-/////////////////////////////////////////////////////////////////
+}

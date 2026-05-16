@@ -339,10 +339,8 @@ int Color_Scan16(int x1, int y1, int x2, int y2,
 
 // graphics functions
 int Draw_Clip_Line(int x0,int y0, int x1, int y1, int color,UCHAR *dest_buffer, int lpitch);
-int Draw_Clip_Line16(int x0,int y0, int x1, int y1, int color,UCHAR *dest_buffer, int lpitch);
 int Clip_Line(int &x1,int &y1,int &x2, int &y2);
 int Draw_Line(int xo, int yo, int x1,int y1, int color,UCHAR *vb_start,int lpitch);
-int Draw_Line16(int xo, int yo, int x1,int y1, int color,UCHAR *vb_start,int lpitch);
 int Draw_Pixel(int x, int y,int color,UCHAR *video_buffer, int lpitch);
 int Draw_Rectangle(int x1, int y1, int x2, int y2, int color,LPDIRECTDRAWSURFACE7 lpdds);
 
@@ -352,11 +350,8 @@ void HLine16(int x1,int x2,int y,int color, UCHAR *vbuffer, int lpitch);
 void VLine16(int y1,int y2,int x,int color, UCHAR *vbuffer, int lpitch);
 void Screen_Transitions(int effect, UCHAR *vbuffer, int lpitch);
 int Draw_Pixel(int x, int y,int color,UCHAR *video_buffer, int lpitch);
-int Draw_Pixel16(int x, int y,int color,UCHAR *video_buffer, int lpitch);
 
 // palette functions
-int Set_Palette_Entry(int color_index, LPPALETTEENTRY color);
-int Get_Palette_Entry(int color_index, LPPALETTEENTRY color);
 int Load_Palette_From_File(char *filename, LPPALETTEENTRY palette);
 int Save_Palette_To_File(char *filename, LPPALETTEENTRY palette);
 int Save_Palette(LPPALETTEENTRY sav_palette);
@@ -385,7 +380,6 @@ int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap);
 
 // gdi functions
 int Draw_Text_GDI(char *text, int x,int y,COLORREF color, LPDIRECTDRAWSURFACE7 lpdds);
-int Draw_Text_GDI(char *text, int x,int y,int color, LPDIRECTDRAWSURFACE7 lpdds);
 
 // error functions
 int Open_Error_File(char *filename, FILE *fp_override=NULL);
@@ -397,19 +391,12 @@ void Draw_Top_Tri(int x1,int y1,int x2,int y2, int x3,int y3,int color,UCHAR *de
 
 void Draw_Bottom_Tri(int x1,int y1, int x2,int y2, int x3,int y3,int color,UCHAR *dest_buffer, int mempitch);
 
-void Draw_Top_Tri16(int x1,int y1,int x2,int y2, int x3,int y3,int color,UCHAR *dest_buffer, int mempitch);
-
-void Draw_Bottom_Tri16(int x1,int y1, int x2,int y2, int x3,int y3,int color,UCHAR *dest_buffer, int mempitch);
-
 void Draw_Top_TriFP(int x1,int y1,int x2,int y2, int x3,int y3,int color,UCHAR *dest_buffer, int mempitch);
 
 void Draw_Bottom_TriFP(int x1,int y1, int x2,int y2, int x3,int y3,int color,UCHAR *dest_buffer, int mempitch);
 
 void Draw_Triangle_2D(int x1,int y1,int x2,int y2,int x3,int y3,
                       int color,UCHAR *dest_buffer, int mempitch);
-
-void Draw_Triangle_2D16(int x1,int y1,int x2,int y2,int x3,int y3,
-                        int color,UCHAR *dest_buffer, int mempitch);
 
 void Draw_TriangleFP_2D(int x1,int y1,int x2,int y2,int x3,int y3,
                         int color,UCHAR *dest_buffer, int mempitch);
@@ -421,7 +408,6 @@ inline void Draw_QuadFP_2D(int x0,int y0,int x1,int y1,
 
 // general 2D 8-bit, 16-bit polygon rendering and transforming functions
 void Draw_Filled_Polygon2D(POLYGON2D_PTR poly, UCHAR *vbuffer, int mempitch);
-void Draw_Filled_Polygon2D16(POLYGON2D_PTR poly, UCHAR *vbuffer, int mempitch);
 int Translate_Polygon2D(POLYGON2D_PTR poly, int dx, int dy);
 int Rotate_Polygon2D(POLYGON2D_PTR poly, int theta);
 int Scale_Polygon2D(POLYGON2D_PTR poly, float sx, float sy);
@@ -430,7 +416,6 @@ int Translate_Polygon2D_Mat(POLYGON2D_PTR poly, int dx, int dy);
 int Rotate_Polygon2D_Mat(POLYGON2D_PTR poly, int theta);
 int Scale_Polygon2D_Mat(POLYGON2D_PTR poly, float sx, float sy);
 int Draw_Polygon2D(POLYGON2D_PTR poly, UCHAR *vbuffer, int lpitch);
-int Draw_Polygon2D16(POLYGON2D_PTR poly, UCHAR *vbuffer, int lpitch);
 
 // math functions
 int Fast_Distance_2D(int x, int y);
@@ -460,7 +445,6 @@ inline int Mat_Init_3X2(MATRIX3X2_PTR ma,
 
 
 // memory manipulation functions
-inline void Mem_Set_WORD(void *dest, USHORT data, int count);
 inline void Mem_Set_QUAD(void *dest, UINT   data, int count);
 
 
@@ -518,12 +502,6 @@ extern float sin_look[361]; // 1 extra so we can store 0-360 inclusive
 
 // function ptr to RGB16 builder
 extern USHORT (*RGB16Bit)(int r, int g, int b);
-
-// root functions
-extern USHORT RGB16Bit565(int r, int g, int b);
-extern USHORT RGB16Bit555(int r, int g, int b);
-
-
 
 #endif
 

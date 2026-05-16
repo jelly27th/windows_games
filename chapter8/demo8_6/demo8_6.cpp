@@ -186,7 +186,6 @@ int Mat_Mul1X2_3X2(MATRIX1X2_PTR ma,
                    MATRIX1X2_PTR mprod)
 {
 
-
     for (int col=0; col<2; col++) {
       // compute dot product from row of ma 
       // and column of mb
