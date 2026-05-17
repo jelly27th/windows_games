@@ -39,7 +39,6 @@
 #define DD_PIXEL_FORMAT888      24
 #define DD_PIXEL_FORMATALPHA888 32 
 
-
 // defines for BOBs
 #define BOB_STATE_DEAD         0    // this is a dead bob
 #define BOB_STATE_ALIVE        1    // this is a live bob
@@ -94,15 +93,6 @@
 // these read the keyboard asynchronously
 #define KEY_DOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEY_UP(vk_code)   ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
-
-// this builds a 16 bit color value in 5.5.5 format (1-bit alpha mode)
-#define _RGB16BIT555(r,g,b) ((b & 31) + ((g & 31) << 5) + ((r & 31) << 10))
-
-// this builds a 16 bit color value in 5.6.5 format (green dominate mode)
-#define _RGB16BIT565(r,g,b) ((b & 31) + ((g & 63) << 5) + ((r & 31) << 11))
-
-// this builds a 24 bit color value in 8.8.8 format 
-#define _RGB24BIT(a,r,g,b) ((b) + ((g) << 8) + ((r) << 16) )
 
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + ((g) << 8) + ((r) << 16) + ((a) << 24))
@@ -289,7 +279,7 @@ LPDIRECTDRAWSURFACE7 DDraw_Create_Surface(int width, int height, int mem_flags=0
 
 int DDraw_Flip(void);
 int DDraw_Wait_For_Vsync(void);
-int DDraw_Fill_Surface(LPDIRECTDRAWSURFACE7 lpdds, USHORT color, RECT *client=NULL);
+int DDraw_Fill_Surface(LPDIRECTDRAWSURFACE7 lpdds, int color, RECT *client=NULL);
 UCHAR *DDraw_Lock_Surface(LPDIRECTDRAWSURFACE7 lpdds,int *lpitch);
 int DDraw_Unlock_Surface(LPDIRECTDRAWSURFACE7 lpdds);
 UCHAR *DDraw_Lock_Primary_Surface(void);
@@ -304,11 +294,8 @@ int Clone_BOB(BOB_PTR source, BOB_PTR dest);
 int Destroy_BOB(BOB_PTR bob);
 int Draw_BOB(BOB_PTR bob, LPDIRECTDRAWSURFACE7 dest);
 int Draw_Scaled_BOB(BOB_PTR bob, int swidth, int sheight,LPDIRECTDRAWSURFACE7 dest);
-int Draw_BOB16(BOB_PTR bob, LPDIRECTDRAWSURFACE7 dest);
-int Draw_Scaled_BOB16(BOB_PTR bob, int swidth, int sheight,LPDIRECTDRAWSURFACE7 dest);
 
 int Load_Frame_BOB(BOB_PTR bob, BITMAP_FILE_PTR bitmap, int frame, int cx,int cy,int mode);              
-int Load_Frame_BOB16(BOB_PTR bob, BITMAP_FILE_PTR bitmap, int frame, int cx,int cy,int mode);  
 int Animate_BOB(BOB_PTR bob);
 int Move_BOB(BOB_PTR bob);
 int Load_Animation_BOB(BOB_PTR bob, int anim_index, int num_frames, int *sequence);
@@ -352,10 +339,6 @@ void Screen_Transitions(int effect, UCHAR *vbuffer, int lpitch);
 int Draw_Pixel(int x, int y,int color,UCHAR *video_buffer, int lpitch);
 
 // palette functions
-int Load_Palette_From_File(char *filename, LPPALETTEENTRY palette);
-int Save_Palette_To_File(char *filename, LPPALETTEENTRY palette);
-int Save_Palette(LPPALETTEENTRY sav_palette);
-int Set_Palette(LPPALETTEENTRY set_palette);
 int Rotate_Colors(int start_index, int end_index);
 int Blink_Colors(int command, BLINKER_PTR new_light, int id);
 
@@ -447,7 +430,6 @@ inline int Mat_Init_3X2(MATRIX3X2_PTR ma,
 // memory manipulation functions
 inline void Mem_Set_QUAD(void *dest, UINT   data, int count);
 
-
 // GLOBALS ////////////////////////////////////////////////
 
 extern FILE *fp_error;                           // general error file
@@ -499,9 +481,6 @@ extern int window_client_y0;   // for windowed mode directdraw operations
 // storage for our lookup tables
 extern float cos_look[361]; // 1 extra so we can store 0-360 inclusive
 extern float sin_look[361]; // 1 extra so we can store 0-360 inclusive
-
-// function ptr to RGB16 builder
-extern USHORT (*RGB16Bit)(int r, int g, int b);
 
 #endif
 

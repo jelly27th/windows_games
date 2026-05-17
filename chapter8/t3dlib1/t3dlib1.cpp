@@ -92,9 +92,9 @@ float sin_look[361];
 
 /* function */
 
-inline void Mem_Set_QUAD(void *dest, UINT data, int count) {
 // this function fills or sets unsigned 32-bit aligned memory
 // count is number of quads
+inline void Mem_Set_QUAD(void *dest, UINT data, int count) {
 
    if (!dest || count <= 0) 
       return;
@@ -107,8 +107,14 @@ inline void Mem_Set_QUAD(void *dest, UINT data, int count) {
 
 }
 
-//////////////////////////////////////////////////////////
-
+// Create the BOB object, note that all BOBs 
+// are created as offscreen surfaces in VRAM as the
+// default, if you want to use system memory then
+// set flags equal to:
+// DDSCAPS_SYSTEMMEMORY 
+// for video memory you can create either local VRAM surfaces or AGP 
+// surfaces via the second set of constants shown below in the regular expression
+// DDSCAPS_VIDEOMEMORY | (DDSCAPS_NONLOCALVIDMEM | DDSCAPS_LOCALVIDMEM )
 int Create_BOB(BOB_PTR bob,           // the bob to create
                int x, int y,          // initial posiiton
                int width, int height, // size of bob
@@ -118,334 +124,224 @@ int Create_BOB(BOB_PTR bob,           // the bob to create
                USHORT color_key_value, // default color key
                int bpp)                // bits per pixel
 
-{
-// Create the BOB object, note that all BOBs 
-// are created as offscreen surfaces in VRAM as the
-// default, if you want to use system memory then
-// set flags equal to:
-// DDSCAPS_SYSTEMMEMORY 
-// for video memory you can create either local VRAM surfaces or AGP 
-// surfaces via the second set of constants shown below in the regular expression
-// DDSCAPS_VIDEOMEMORY | (DDSCAPS_NONLOCALVIDMEM | DDSCAPS_LOCALVIDMEM ) 
+{ 
 
+   DDSURFACEDESC2 ddsd; // used to create surface
+   int index;           // looping var
 
-DDSURFACEDESC2 ddsd; // used to create surface
-int index;           // looping var
+   // set state and attributes of BOB
+   bob->state          = BOB_STATE_ALIVE;
+   bob->attr           = attr;
+   bob->anim_state     = 0;
+   bob->counter_1      = 0;     
+   bob->counter_2      = 0;
+   bob->max_count_1    = 0;
+   bob->max_count_2    = 0;
 
-// set state and attributes of BOB
-bob->state          = BOB_STATE_ALIVE;
-bob->attr           = attr;
-bob->anim_state     = 0;
-bob->counter_1      = 0;     
-bob->counter_2      = 0;
-bob->max_count_1    = 0;
-bob->max_count_2    = 0;
+   bob->curr_frame     = 0;
+   bob->num_frames     = num_frames;
+   bob->bpp            = bpp;
+   bob->curr_animation = 0;
+   bob->anim_counter   = 0;
+   bob->anim_index     = 0;
+   bob->anim_count_max = 0; 
+   bob->x              = x;
+   bob->y              = y;
+   bob->xv             = 0;
+   bob->yv             = 0;
 
-bob->curr_frame     = 0;
-bob->num_frames     = num_frames;
-bob->bpp            = bpp;
-bob->curr_animation = 0;
-bob->anim_counter   = 0;
-bob->anim_index     = 0;
-bob->anim_count_max = 0; 
-bob->x              = x;
-bob->y              = y;
-bob->xv             = 0;
-bob->yv             = 0;
+   // set dimensions of the new bitmap surface
+   bob->width  = width;
+   bob->height = height;
 
-// set dimensions of the new bitmap surface
-bob->width  = width;
-bob->height = height;
+   // set all images to null
+   for (index=0; index<MAX_BOB_FRAMES; index++)
+      bob->images[index] = NULL;
 
-// set all images to null
-for (index=0; index<MAX_BOB_FRAMES; index++)
-    bob->images[index] = NULL;
+   // set all animations to null
+   for (index=0; index<MAX_BOB_ANIMATIONS; index++)
+      bob->animations[index] = NULL;
 
-// set all animations to null
-for (index=0; index<MAX_BOB_ANIMATIONS; index++)
-    bob->animations[index] = NULL;
+   #if 0
+   // make sure surface width is a multiple of 8, some old version of dd like that
+   // now, it's unneeded...
+   bob->width_fill = ((width%8!=0) ? (8-width%8) : 0);
+   Write_Error("\nCreate BOB: width_fill=%d",bob->width_fill);
+   #endif
 
-#if 0
-// make sure surface width is a multiple of 8, some old version of dd like that
-// now, it's unneeded...
-bob->width_fill = ((width%8!=0) ? (8-width%8) : 0);
-Write_Error("\nCreate BOB: width_fill=%d",bob->width_fill);
-#endif
+   // now create each surface
+   for (index=0; index<bob->num_frames; index++) {
+      // set to access caps, width, and height
+      memset(&ddsd,0,sizeof(ddsd));
+      ddsd.dwSize  = sizeof(ddsd);
+      ddsd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT;
 
-// now create each surface
-for (index=0; index<bob->num_frames; index++)
-    {
-    // set to access caps, width, and height
-    memset(&ddsd,0,sizeof(ddsd));
-    ddsd.dwSize  = sizeof(ddsd);
-    ddsd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT;
+      ddsd.dwWidth  = bob->width + bob->width_fill;
+      ddsd.dwHeight = bob->height;
 
-    ddsd.dwWidth  = bob->width + bob->width_fill;
-    ddsd.dwHeight = bob->height;
+      // set surface to offscreen plain
+      ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | mem_flags;
 
-    // set surface to offscreen plain
-    ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | mem_flags;
+      // create the surfaces, return failure if problem
+      if (FAILED(lpdd->CreateSurface(&ddsd,&(bob->images[index]),NULL)))
+         return(0);
 
-    // create the surfaces, return failure if problem
-    if (FAILED(lpdd->CreateSurface(&ddsd,&(bob->images[index]),NULL)))
-        return(0);
+      // set color key to default color 000
+      // note that if this is a 8bit bob then palette index 0 will be 
+      // transparent by default
+      // note that if this is a 16bit bob then RGB value 000 will be 
+      // transparent
+      DDCOLORKEY color_key; // used to set color key
+      color_key.dwColorSpaceLowValue  = color_key_value;
+      color_key.dwColorSpaceHighValue = color_key_value;
 
-    // set color key to default color 000
-    // note that if this is a 8bit bob then palette index 0 will be 
-    // transparent by default
-    // note that if this is a 16bit bob then RGB value 000 will be 
-    // transparent
-    DDCOLORKEY color_key; // used to set color key
-    color_key.dwColorSpaceLowValue  = color_key_value;
-    color_key.dwColorSpaceHighValue = color_key_value;
+      // now set the color key for source blitting
+      (bob->images[index])->SetColorKey(DDCKEY_SRCBLT, &color_key);
+      
+   }
 
-    // now set the color key for source blitting
-    (bob->images[index])->SetColorKey(DDCKEY_SRCBLT, &color_key);
-    
-    } // end for index
+   // return success
+   return 1;
+}
 
-// return success
-return 1;
-
-} // end Create_BOB
-
-///////////////////////////////////////////////////////////
-
-int Clone_BOB(BOB_PTR source, BOB_PTR dest)
-{
 // this function clones a BOB and updates the attr var to reflect that
 // the BOB is a clone and not real, this is used later in the destroy
 // function so a clone doesn't destroy the memory of a real bob
+int Clone_BOB(BOB_PTR source, BOB_PTR dest) {
 
-if ((source && dest) && (source!=dest))
-   {
-   // copy the bob data
-   memcpy(dest,source, sizeof(BOB));
+   if ((source && dest) && (source!=dest)) {
+      // copy the bob data
+      memcpy(dest,source, sizeof(BOB));
 
-   // set the clone attribute
-   dest->attr |= BOB_ATTR_CLONE;
+      // set the clone attribute
+      dest->attr |= BOB_ATTR_CLONE;
 
-   } // end if
+   } else
+      return(0);
 
-else
-    return(0);
+   // return success
+   return 1;
+}
 
-// return success
-return 1;
-
-} // end Clone_BOB
-
-///////////////////////////////////////////////////////////
-
-int Destroy_BOB(BOB_PTR bob)
-{
 // destroy the BOB, tests if this is a real bob or a clone
 // if real then release all the memory, otherwise, just resets
 // the pointers to null
+int Destroy_BOB(BOB_PTR bob) {
 
-int index; // looping var
+   int index; // looping var
 
-// is this bob valid
-if (!bob)
-    return(0);
+   // is this bob valid
+   if (!bob)
+      return(0);
 
-// test if this is a clone
-if (bob->attr && BOB_ATTR_CLONE)
-    {
-    // null link all surfaces
-    for (index=0; index<MAX_BOB_FRAMES; index++)
-        if (bob->images[index])
-            bob->images[index]=NULL;
+   // test if this is a clone
+   if (bob->attr && BOB_ATTR_CLONE) {
+      // null link all surfaces
+      for (index=0; index<MAX_BOB_FRAMES; index++)
+         if (bob->images[index])
+               bob->images[index]=NULL;
 
-    // release memory for animation sequences 
-    for (index=0; index<MAX_BOB_ANIMATIONS; index++)
-        if (bob->animations[index])
-            bob->animations[index]=NULL;
+      // release memory for animation sequences 
+      for (index=0; index<MAX_BOB_ANIMATIONS; index++)
+         if (bob->animations[index])
+               bob->animations[index]=NULL;
 
-    } // end if
-else
-    {
-    // destroy each bitmap surface
-    for (index=0; index<MAX_BOB_FRAMES; index++)
-        if (bob->images[index])
+   } else {
+
+      // destroy each bitmap surface
+      for (index=0; index<MAX_BOB_FRAMES; index++)
+         if (bob->images[index])
             (bob->images[index])->Release();
 
-    // release memory for animation sequences 
-    for (index=0; index<MAX_BOB_ANIMATIONS; index++)
-        if (bob->animations[index])
+      // release memory for animation sequences 
+      for (index=0; index<MAX_BOB_ANIMATIONS; index++)
+         if (bob->animations[index])
             free(bob->animations[index]);
 
-    } // end else not clone
+   }
 
-// return success
-return 1;
+   // return success
+   return 1;
+}
 
-} // end Destroy_BOB
-
-///////////////////////////////////////////////////////////
-
+// draw a bob at the x,y defined in the BOB
+// on the destination surface defined in dest
 int Draw_BOB(BOB_PTR bob,               // bob to draw
              LPDIRECTDRAWSURFACE7 dest) // surface to draw the bob on
 {
-// draw a bob at the x,y defined in the BOB
-// on the destination surface defined in dest
 
-RECT dest_rect,   // the destination rectangle
-     source_rect; // the source rectangle                             
+   RECT dest_rect,   // the destination rectangle
+      source_rect; // the source rectangle                             
 
-// is this a valid bob
-if (!bob)
-    return(0);
+   // is this a valid bob
+   if (!bob)
+      return(0);
 
-// is bob visible
-if (!(bob->attr & BOB_ATTR_VISIBLE))
+   // is bob visible
+   if (!(bob->attr & BOB_ATTR_VISIBLE))
+      return 1;
+
+   // fill in the destination rect
+   dest_rect.left   = bob->x;
+   dest_rect.top    = bob->y;
+   dest_rect.right  = bob->x+bob->width;
+   dest_rect.bottom = bob->y+bob->height;
+
+   // fill in the source rect
+   source_rect.left    = 0;
+   source_rect.top     = 0;
+   source_rect.right   = bob->width;
+   source_rect.bottom  = bob->height;
+
+   // blt to destination surface
+   if (FAILED(dest->Blt(&dest_rect, bob->images[bob->curr_frame],
+            &source_rect,(DDBLT_WAIT | DDBLT_KEYSRC),
+            NULL)))
+      return(0);
+
+   // return success
    return 1;
+}
 
-// fill in the destination rect
-dest_rect.left   = bob->x;
-dest_rect.top    = bob->y;
-dest_rect.right  = bob->x+bob->width;
-dest_rect.bottom = bob->y+bob->height;
-
-// fill in the source rect
-source_rect.left    = 0;
-source_rect.top     = 0;
-source_rect.right   = bob->width;
-source_rect.bottom  = bob->height;
-
-// blt to destination surface
-if (FAILED(dest->Blt(&dest_rect, bob->images[bob->curr_frame],
-          &source_rect,(DDBLT_WAIT | DDBLT_KEYSRC),
-          NULL)))
-    return(0);
-
-// return success
-return 1;
-} // end Draw_BOB
-
-///////////////////////////////////////////////////////////
-
+// this function draws a scaled bob to the size swidth, sheight
 int Draw_Scaled_BOB(BOB_PTR bob, int swidth, int sheight,  // bob and new dimensions
                     LPDIRECTDRAWSURFACE7 dest) // surface to draw the bob on)
 {
-// this function draws a scaled bob to the size swidth, sheight
 
-RECT dest_rect,   // the destination rectangle
-     source_rect; // the source rectangle                             
+   RECT dest_rect,   // the destination rectangle
+      source_rect; // the source rectangle                             
 
-// is this a valid bob
-if (!bob)
-    return(0);
+   // is this a valid bob
+   if (!bob)
+      return(0);
 
-// is bob visible
-if (!(bob->attr & BOB_ATTR_VISIBLE))
+   // is bob visible
+   if (!(bob->attr & BOB_ATTR_VISIBLE))
+      return 1;
+
+   // fill in the destination rect
+   dest_rect.left   = bob->x;
+   dest_rect.top    = bob->y;
+   dest_rect.right  = bob->x+swidth;
+   dest_rect.bottom = bob->y+sheight;
+
+   // fill in the source rect
+   source_rect.left    = 0;
+   source_rect.top     = 0;
+   source_rect.right   = bob->width;
+   source_rect.bottom  = bob->height;
+
+   // blt to destination surface
+   if (FAILED(dest->Blt(&dest_rect, bob->images[bob->curr_frame],
+            &source_rect,(DDBLT_WAIT | DDBLT_KEYSRC),
+            NULL)))
+      return(0);
+
+   // return success
    return 1;
+}
 
-// fill in the destination rect
-dest_rect.left   = bob->x;
-dest_rect.top    = bob->y;
-dest_rect.right  = bob->x+swidth;
-dest_rect.bottom = bob->y+sheight;
-
-// fill in the source rect
-source_rect.left    = 0;
-source_rect.top     = 0;
-source_rect.right   = bob->width;
-source_rect.bottom  = bob->height;
-
-// blt to destination surface
-if (FAILED(dest->Blt(&dest_rect, bob->images[bob->curr_frame],
-          &source_rect,(DDBLT_WAIT | DDBLT_KEYSRC),
-          NULL)))
-    return(0);
-
-// return success
-return 1;
-} // end Draw_Scaled_BOB
-
-////////////////////////////////////////////////////
-
-int Draw_BOB16(BOB_PTR bob,             // bob to draw
-             LPDIRECTDRAWSURFACE7 dest) // surface to draw the bob on
-{
-// draw a bob at the x,y defined in the BOB
-// on the destination surface defined in dest
-
-RECT dest_rect,   // the destination rectangle
-     source_rect; // the source rectangle                             
-
-// is this a valid bob
-if (!bob)
-    return(0);
-
-// is bob visible
-if (!(bob->attr & BOB_ATTR_VISIBLE))
-   return 1;
-
-// fill in the destination rect
-dest_rect.left   = bob->x;
-dest_rect.top    = bob->y;
-dest_rect.right  = bob->x+bob->width;
-dest_rect.bottom = bob->y+bob->height;
-
-// fill in the source rect
-source_rect.left    = 0;
-source_rect.top     = 0;
-source_rect.right   = bob->width;
-source_rect.bottom  = bob->height;
-
-// blt to destination surface
-if (FAILED(dest->Blt(&dest_rect, bob->images[bob->curr_frame],
-          &source_rect,(DDBLT_WAIT | DDBLT_KEYSRC),
-          NULL)))
-    return(0);
-
-// return success
-return 1;
-} // end Draw_BOB16
-
-///////////////////////////////////////////////////////////
-
-int Draw_Scaled_BOB16(BOB_PTR bob, int swidth, int sheight,  // bob and new dimensions
-                    LPDIRECTDRAWSURFACE7 dest) // surface to draw the bob on)
-{
-// this function draws a scaled bob to the size swidth, sheight
-
-RECT dest_rect,   // the destination rectangle
-     source_rect; // the source rectangle                             
-
-// is this a valid bob
-if (!bob)
-    return(0);
-
-// is bob visible
-if (!(bob->attr & BOB_ATTR_VISIBLE))
-   return 1;
-
-// fill in the destination rect
-dest_rect.left   = bob->x;
-dest_rect.top    = bob->y;
-dest_rect.right  = bob->x+swidth;
-dest_rect.bottom = bob->y+sheight;
-
-// fill in the source rect
-source_rect.left    = 0;
-source_rect.top     = 0;
-source_rect.right   = bob->width;
-source_rect.bottom  = bob->height;
-
-// blt to destination surface
-if (FAILED(dest->Blt(&dest_rect, bob->images[bob->curr_frame],
-          &source_rect,(DDBLT_WAIT | DDBLT_KEYSRC),
-          NULL)))
-    return(0);
-
-// return success
-return 1;
-} // end Draw_Scaled_BOB16
-
-///////////////////////////////////////////////////////////
-
+// this function extracts a bitmap out of a bitmap file
 int Load_Frame_BOB(BOB_PTR bob, // bob to load with data
                    BITMAP_FILE_PTR bitmap, // bitmap to scan image data from
                    int frame,       // frame to load
@@ -453,460 +349,341 @@ int Load_Frame_BOB(BOB_PTR bob, // bob to load with data
                    int mode)        // if 0 then cx,cy is cell position, else 
                                     // cx,cy are absolute coords
 {
-// this function extracts a bitmap out of a bitmap file
 
-DDSURFACEDESC2 ddsd;  //  direct draw surface description 
+   DDSURFACEDESC2 ddsd;  //  direct draw surface description 
 
-// is this a valid bob
-if (!bob)
-   return(0);
+   // is this a valid bob
+   if (!bob)
+      return(0);
 
-UCHAR *source_ptr,   // working pointers
-      *dest_ptr;
+   DWORD *source_ptr,   // working pointers
+         *dest_ptr;
 
-// test the mode of extraction, cell based or absolute
-if (mode==BITMAP_EXTRACT_MODE_CELL)
-   {
-   // re-compute x,y
-   cx = cx*(bob->width+1) + 1;
-   cy = cy*(bob->height+1) + 1;
-   } // end if
+   // test the mode of extraction, cell based or absolute
+   if (mode==BITMAP_EXTRACT_MODE_CELL) {
+      // re-compute x,y
+      cx = cx*(bob->width+1) + 1;
+      cy = cy*(bob->height+1) + 1;
+   }
 
-// extract bitmap data
-source_ptr = bitmap->buffer + cy*bitmap->bitmapinfoheader.biWidth+cx;
+   // extract bitmap data
+   source_ptr = (DWORD *)bitmap->buffer + cy*bitmap->bitmapinfoheader.biWidth+cx;
 
-// get the addr to destination surface memory
+   // get the addr to destination surface memory
 
-// set size of the structure
-ddsd.dwSize = sizeof(ddsd);
+   // set size of the structure
+   ddsd.dwSize = sizeof(ddsd);
 
-// lock the display surface
-(bob->images[frame])->Lock(NULL,
-                           &ddsd,
-                           DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR,
-                           NULL);
+   // lock the display surface
+   (bob->images[frame])->Lock(NULL,
+                              &ddsd,
+                              DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR,
+                              NULL);
 
-// assign a pointer to the memory surface for manipulation
-dest_ptr = (UCHAR *)ddsd.lpSurface;
+   // assign a pointer to the memory surface for manipulation
+   dest_ptr = (DWORD *)ddsd.lpSurface;
 
-// iterate thru each scanline and copy bitmap
-for (int index_y=0; index_y<bob->height; index_y++)
-    {
-    // copy next line of data to destination
-    memcpy(dest_ptr, source_ptr,bob->width);
+   // iterate thru each scanline and copy bitmap
+   for (int index_y=0; index_y<bob->height; index_y++) {
+      // copy next line of data to destination
+      memcpy(dest_ptr, source_ptr,bob->width);
 
-    // advance pointers
-    dest_ptr   += (ddsd.lPitch); // (bob->width+bob->width_fill);
-    source_ptr += bitmap->bitmapinfoheader.biWidth;
-    } // end for index_y
+      // advance pointers
+      dest_ptr   += (ddsd.lPitch >> 2); // (bob->width+bob->width_fill);
+      source_ptr += bitmap->bitmapinfoheader.biWidth;
+   }
 
-// unlock the surface 
-(bob->images[frame])->Unlock(NULL);
+   // unlock the surface 
+   (bob->images[frame])->Unlock(NULL);
 
-// set state to loaded
-bob->attr |= BOB_ATTR_LOADED;
+   // set state to loaded
+   bob->attr |= BOB_ATTR_LOADED;
 
-// return success
-return 1;
+   // return success
+   return 1;
 
-} // end Load_Frame_BOB
+}
 
-///////////////////////////////////////////////////////////////
-
-int Load_Frame_BOB16(BOB_PTR bob, // bob to load with data
-                     BITMAP_FILE_PTR bitmap, // bitmap to scan image data from
-                     int frame,       // frame to load
-                     int cx,int cy,   // cell or absolute pos. to scan image from
-                     int mode)        // if 0 then cx,cy is cell position, else 
-                                    // cx,cy are absolute coords
-{
-// this function extracts a 16-bit bitmap out of a 16-bit bitmap file
-
-DDSURFACEDESC2 ddsd;  //  direct draw surface description 
-
-// is this a valid bob
-if (!bob)
-   return(0);
-
-USHORT *source_ptr,   // working pointers
-       *dest_ptr;
-
-// test the mode of extraction, cell based or absolute
-if (mode==BITMAP_EXTRACT_MODE_CELL)
-   {
-   // re-compute x,y
-   cx = cx*(bob->width+1) + 1;
-   cy = cy*(bob->height+1) + 1;
-   } // end if
-
-// extract bitmap data
-source_ptr = (USHORT *)bitmap->buffer + cy*bitmap->bitmapinfoheader.biWidth+cx;
-
-// get the addr to destination surface memory
-
-// set size of the structure
-ddsd.dwSize = sizeof(ddsd);
-
-// lock the display surface
-(bob->images[frame])->Lock(NULL,
-                           &ddsd,
-                           DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR,
-                           NULL);
-
-// assign a pointer to the memory surface for manipulation
-dest_ptr = (USHORT *)ddsd.lpSurface;
-
-// iterate thru each scanline and copy bitmap
-for (int index_y=0; index_y<bob->height; index_y++)
-    {
-    // copy next line of data to destination
-    memcpy(dest_ptr, source_ptr,(bob->width*2));
-
-    // advance pointers
-    dest_ptr   += (ddsd.lPitch >> 1); 
-    source_ptr += bitmap->bitmapinfoheader.biWidth;
-    } // end for index_y
-
-// unlock the surface 
-(bob->images[frame])->Unlock(NULL);
-
-// set state to loaded
-bob->attr |= BOB_ATTR_LOADED;
-
-// return success
-return 1;
-
-} // end Load_Frame_BOB16
-
-///////////////////////////////////////////////////////////
-
-int Animate_BOB(BOB_PTR bob)
-{
 // this function animates a bob, basically it takes a look at
 // the attributes of the bob and determines if the bob is 
 // a single frame, multiframe, or multi animation, updates
 // the counters and frames appropriately
+int Animate_BOB(BOB_PTR bob) {
 
-// is this a valid bob
-if (!bob)
-   return(0);
+   // is this a valid bob
+   if (!bob)
+      return(0);
 
-// test the level of animation
-if (bob->attr & BOB_ATTR_SINGLE_FRAME)
-    {
-    // current frame always = 0
-    bob->curr_frame = 0;
-    return 1;
-    } // end if
-else
-if (bob->attr & BOB_ATTR_MULTI_FRAME)
-   {
-   // update the counter and test if its time to increment frame
-   if (++bob->anim_counter >= bob->anim_count_max)
-      {
-      // reset counter
-      bob->anim_counter = 0;
+   // test the level of animation
+   if (bob->attr & BOB_ATTR_SINGLE_FRAME) {
+      // current frame always = 0
+      bob->curr_frame = 0;
+      return 1;
+   } else if (bob->attr & BOB_ATTR_MULTI_FRAME) {
+      // update the counter and test if its time to increment frame
+      if (++bob->anim_counter >= bob->anim_count_max) {
+         // reset counter
+         bob->anim_counter = 0;
 
-      // move to next frame
-      if (++bob->curr_frame >= bob->num_frames)
-         bob->curr_frame = 0;
+         // move to next frame
+         if (++bob->curr_frame >= bob->num_frames)
+            bob->curr_frame = 0;
 
-      } // end if
-  
-   } // end elseif
-else
-if (bob->attr & BOB_ATTR_MULTI_ANIM)
-   {
-   // this is the most complex of the animations it must look up the
-   // next frame in the animation sequence
+      }
+   
+   } else if (bob->attr & BOB_ATTR_MULTI_ANIM) {
+      // this is the most complex of the animations it must look up the
+      // next frame in the animation sequence
 
-   // first test if its time to animate
-   if (++bob->anim_counter >= bob->anim_count_max)
-      {
-      // reset counter
-      bob->anim_counter = 0;
+      // first test if its time to animate
+      if (++bob->anim_counter >= bob->anim_count_max) {
+         // reset counter
+         bob->anim_counter = 0;
 
-      // increment the animation frame index
-      bob->anim_index++;
+         // increment the animation frame index
+         bob->anim_index++;
+         
+         // extract the next frame from animation list 
+         bob->curr_frame = bob->animations[bob->curr_animation][bob->anim_index];
       
-      // extract the next frame from animation list 
-      bob->curr_frame = bob->animations[bob->curr_animation][bob->anim_index];
-     
-      // is this and end sequence flag -1
-      if (bob->curr_frame == -1)
-         {
-         // test if this is a single shot animation
-         if (bob->attr & BOB_ATTR_ANIM_ONE_SHOT)
-            {
-            // set animation state message to done
-            bob->anim_state = BOB_STATE_ANIM_DONE;
-            
-            // reset frame back one
-            bob->anim_index--;
+         // is this and end sequence flag -1
+         if (bob->curr_frame == -1) {
+            // test if this is a single shot animation
+            if (bob->attr & BOB_ATTR_ANIM_ONE_SHOT) {
+               // set animation state message to done
+               bob->anim_state = BOB_STATE_ANIM_DONE;
+               
+               // reset frame back one
+               bob->anim_index--;
 
-            // extract animation frame
-            bob->curr_frame = bob->animations[bob->curr_animation][bob->anim_index];    
+               // extract animation frame
+               bob->curr_frame = bob->animations[bob->curr_animation][bob->anim_index];    
 
-            } // end if
-        else
-           {
-           // reset animation index
-           bob->anim_index = 0;
+            } else {
+            // reset animation index
+            bob->anim_index = 0;
 
-           // extract first animation frame
-           bob->curr_frame = bob->animations[bob->curr_animation][bob->anim_index];
-           } // end else
+            // extract first animation frame
+            bob->curr_frame = bob->animations[bob->curr_animation][bob->anim_index];
+            }
 
-         }  // end if
-      
-      } // end if
+         }
+         
+      }
 
-   } // end elseif
+   }
+   // return success
+   return 1;
 
-// return success
-return 1;
+}
 
-} // end Amimate_BOB
-
-///////////////////////////////////////////////////////////
-
-int Scroll_BOB(void)
-{
 // this function scrolls a bob 
-// not implemented
+int Scroll_BOB(void) {
 
-// return success
-return 1;
-} // end Scroll_BOB
+   // not implemented
 
-///////////////////////////////////////////////////////////
+   // return success
+   return 1;
+}
 
-int Move_BOB(BOB_PTR bob)
-{
 // this function moves the bob based on its current velocity
 // also, the function test for various motion attributes of the'
 // bob and takes the appropriate actions
-   
+int Move_BOB(BOB_PTR bob) {
 
-// is this a valid bob
-if (!bob)
-   return(0);
+   // is this a valid bob
+   if (!bob)
+      return(0);
 
-// translate the bob
-bob->x+=bob->xv;
-bob->y+=bob->yv;
+   // translate the bob
+   bob->x+=bob->xv;
+   bob->y+=bob->yv;
 
-// test for wrap around
-if (bob->attr & BOB_ATTR_WRAPAROUND)
-   {
-   // test x extents first
-   if (bob->x > max_clip_x)
-       bob->x = min_clip_x - bob->width;
-   else
-   if (bob->x < min_clip_x-bob->width)
-       bob->x = max_clip_x;
-   
-   // now y extents
-   if (bob->x > max_clip_x)
-       bob->x = min_clip_x - bob->width;
-   else
-   if (bob->x < min_clip_x-bob->width)
-       bob->x = max_clip_x;
+   // test for wrap around
+   if (bob->attr & BOB_ATTR_WRAPAROUND) {
+      // test x extents first
+      if (bob->x > max_clip_x)
+         bob->x = min_clip_x - bob->width;
+      else
+      if (bob->x < min_clip_x-bob->width)
+         bob->x = max_clip_x;
+      
+      // now y extents
+      if (bob->x > max_clip_x)
+         bob->x = min_clip_x - bob->width;
+      else
+      if (bob->x < min_clip_x-bob->width)
+         bob->x = max_clip_x;
 
-   } // end if
-else
-// test for bounce
-if (bob->attr & BOB_ATTR_BOUNCE)
-   {
-   // test x extents first
-   if ((bob->x > max_clip_x - bob->width) || (bob->x < min_clip_x) )
-       bob->xv = -bob->xv;
-    
-   // now y extents 
-   if ((bob->y > max_clip_y - bob->height) || (bob->y < min_clip_y) )
-       bob->yv = -bob->yv;
+   } else if (bob->attr & BOB_ATTR_BOUNCE) { // test for bounce 
+      // test x extents first
+      if ((bob->x > max_clip_x - bob->width) || (bob->x < min_clip_x) )
+         bob->xv = -bob->xv;
+      
+      // now y extents 
+      if ((bob->y > max_clip_y - bob->height) || (bob->y < min_clip_y) )
+         bob->yv = -bob->yv;
 
-   } // end if
+   }
 
-// return success
-return 1;
-} // end Move_BOB
+   // return success
+   return 1;
+}
 
-///////////////////////////////////////////////////////////
-
+// this function load an animation sequence for a bob
+// the sequence consists of frame indices, the function
+// will append a -1 to the end of the list so the display
+// software knows when to restart the animation sequence
 int Load_Animation_BOB(BOB_PTR bob, 
                        int anim_index, 
                        int num_frames, 
                        int *sequence)
 {
-// this function load an animation sequence for a bob
-// the sequence consists of frame indices, the function
-// will append a -1 to the end of the list so the display
-// software knows when to restart the animation sequence
 
-// is this bob valid
-if (!bob)
-   return(0);
+   int index;
 
-// allocate memory for bob animation
-if (!(bob->animations[anim_index] = (int *)malloc((num_frames+1)*sizeof(int))))
-   return(0);
+   // is this bob valid
+   if (!bob)
+      return(0);
 
-// load data into 
-for (int index=0; index<num_frames; index++)
-    bob->animations[anim_index][index] = sequence[index];
+   // allocate memory for bob animation
+   if (!(bob->animations[anim_index] = (int *)malloc((num_frames+1)*sizeof(int))))
+      return(0);
 
-// set the end of the list to a -1
-bob->animations[anim_index][index] = -1;
+   // load data into 
+   for (index=0; index<num_frames; index++)
+      bob->animations[anim_index][index] = sequence[index];
 
-// return success
-return 1;
+   // set the end of the list to a -1
+   bob->animations[anim_index][index] = -1;
 
-} // end Load_Animation_BOB
-
-///////////////////////////////////////////////////////////
-
-int Set_Pos_BOB(BOB_PTR bob, int x, int y)
-{
-// this functions sets the postion of a bob
-
-// is this a valid bob
-if (!bob)
-   return(0);
-
-// set positin
-bob->x = x;
-bob->y = y;
-
-// return success
-return 1;
-} // end Set_Pos_BOB
-
-///////////////////////////////////////////////////////////
-
-int Set_Anim_Speed_BOB(BOB_PTR bob,int speed)
-{
-// this function simply sets the animation speed of a bob
-    
-// is this a valid bob
-if (!bob)
-   return(0);
-
-// set speed
-bob->anim_count_max = speed;
-
-// return success
-return 1;
-
-} // end Set_Anim_Speed
-
-///////////////////////////////////////////////////////////
-
-int Set_Animation_BOB(BOB_PTR bob, int anim_index)
-{
-// this function sets the animation to play
-
-// is this a valid bob
-if (!bob)
-   return(0);
-
-// set the animation index
-bob->curr_animation = anim_index;
-
-// reset animation 
-bob->anim_index = 0;
-
-// return success
-return 1;
-
-} // end Set_Animation_BOB
-
-///////////////////////////////////////////////////////////
-
-int Set_Vel_BOB(BOB_PTR bob,int xv, int yv)
-{
-// this function sets the velocity of a bob
-
-// is this a valid bob
-if (!bob)
-   return(0);
-
-// set velocity
-bob->xv = xv;
-bob->yv = yv;
-
-// return success
-return 1;
-} // end Set_Vel_BOB
-
-///////////////////////////////////////////////////////////
-
-int Hide_BOB(BOB_PTR bob)
-{
-// this functions hides bob 
-
-// is this a valid bob
-if (!bob)
-   return(0);
-
-// reset the visibility bit
-RESET_BIT(bob->attr, BOB_ATTR_VISIBLE);
-
-// return success
-return 1;
-} // end Hide_BOB
-
-///////////////////////////////////////////////////////////
-
-int Show_BOB(BOB_PTR bob)
-{
-// this function shows a bob
-
-// is this a valid bob
-if (!bob)
-   return(0);
-
-// set the visibility bit
-SET_BIT(bob->attr, BOB_ATTR_VISIBLE);
-
-// return success
-return 1;
-} // end Show_BOB
-
-///////////////////////////////////////////////////////////
-
-int Collision_BOBS(BOB_PTR bob1, BOB_PTR bob2)
-{
-// are these a valid bobs
-if (!bob1 || !bob2)
-   return(0);
-
-// get the radi of each rect
-int width1  = (bob1->width>>1) - (bob1->width>>3);
-int height1 = (bob1->height>>1) - (bob1->height>>3);
-
-int width2  = (bob2->width>>1) - (bob2->width>>3);
-int height2 = (bob2->height>>1) - (bob2->height>>3);
-
-// compute center of each rect
-int cx1 = bob1->x + width1;
-int cy1 = bob1->y + height1;
-
-int cx2 = bob2->x + width2;
-int cy2 = bob2->y + height2;
-
-// compute deltas
-int dx = abs(cx2 - cx1);
-int dy = abs(cy2 - cy1);
-
-// test if rects overlap
-if (dx < (width1+width2) && dy < (height1+height2))
+   // return success
    return 1;
-else
-// else no collision
-return(0);
 
-} // end Collision_BOBS
+}
+
+// this functions sets the postion of a bob
+int Set_Pos_BOB(BOB_PTR bob, int x, int y) {
+
+   // is this a valid bob
+   if (!bob)
+      return(0);
+
+   // set positin
+   bob->x = x;
+   bob->y = y;
+
+   // return success
+   return 1;
+}
+
+// this function simply sets the animation speed of a bob
+int Set_Anim_Speed_BOB(BOB_PTR bob,int speed) {
+      
+   // is this a valid bob
+   if (!bob)
+      return(0);
+
+   // set speed
+   bob->anim_count_max = speed;
+
+   // return success
+   return 1;
+
+}
+
+// this function sets the animation to play
+int Set_Animation_BOB(BOB_PTR bob, int anim_index) {
+
+   // is this a valid bob
+   if (!bob)
+      return(0);
+
+   // set the animation index
+   bob->curr_animation = anim_index;
+
+   // reset animation 
+   bob->anim_index = 0;
+
+   // return success
+   return 1;
+
+}
+
+// this function sets the velocity of a bob
+int Set_Vel_BOB(BOB_PTR bob,int xv, int yv) {
+
+   // is this a valid bob
+   if (!bob)
+      return(0);
+
+   // set velocity
+   bob->xv = xv;
+   bob->yv = yv;
+
+   // return success
+   return 1;
+}
+
+// this functions hides bob 
+int Hide_BOB(BOB_PTR bob) {
+   
+   // is this a valid bob
+   if (!bob)
+      return(0);
+
+   // reset the visibility bit
+   RESET_BIT(bob->attr, BOB_ATTR_VISIBLE);
+
+   // return success
+   return 1;
+}
+
+// this function shows a bob
+int Show_BOB(BOB_PTR bob) {
+
+   // is this a valid bob
+   if (!bob)
+      return(0);
+
+   // set the visibility bit
+   SET_BIT(bob->attr, BOB_ATTR_VISIBLE);
+
+   // return success
+   return 1;
+}
+
+int Collision_BOBS(BOB_PTR bob1, BOB_PTR bob2) {
+   // are these a valid bobs
+   if (!bob1 || !bob2)
+      return(0);
+
+   // get the radi of each rect
+   int width1  = (bob1->width>>1) - (bob1->width>>3);
+   int height1 = (bob1->height>>1) - (bob1->height>>3);
+
+   int width2  = (bob2->width>>1) - (bob2->width>>3);
+   int height2 = (bob2->height>>1) - (bob2->height>>3);
+
+   // compute center of each rect
+   int cx1 = bob1->x + width1;
+   int cy1 = bob1->y + height1;
+
+   int cx2 = bob2->x + width2;
+   int cy2 = bob2->y + height2;
+
+   // compute deltas
+   int dx = abs(cx2 - cx1);
+   int dy = abs(cy2 - cy1);
+
+   // test if rects overlap
+   if (dx < (width1+width2) && dy < (height1+height2))
+      return 1;
+   else
+   // else no collision
+   return 0;
+
+}
 
 // this function initializes directdraw
 int DDraw_Init(int width, int height, int bpp, int windowed) {
