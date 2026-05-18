@@ -94,6 +94,12 @@
 #define KEY_DOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
 #define KEY_UP(vk_code)   ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
 
+/* this build a 16 bit color value in 5.5.5 format (1-bit alpha mode) */
+#define _RGB16BIT555(r,g,b) ((b & 0x1f) + ((g & 0x1f) << 5) + ((r & 0x1f) << 10))
+
+/* this build a 16 bit color value in 5.6.5 format (green dominate mode) */
+#define _RGB16BIT565(r, g, b) ((b & 0x1f) + ((g & 0x3f) << 5) + ((r & 0x1f) << 11))
+
 // this builds a 32 bit color value in A.8.8.8 format (8-bit alpha mode)
 #define _RGB32BIT(a,r,g,b) ((b) + ((g) << 8) + ((r) << 16) + ((a) << 24))
 
@@ -335,7 +341,6 @@ void HLine(int x1,int x2,int y,int color, UCHAR *vbuffer, int lpitch);
 void VLine(int y1,int y2,int x,int color, UCHAR *vbuffer, int lpitch);
 void HLine16(int x1,int x2,int y,int color, UCHAR *vbuffer, int lpitch);
 void VLine16(int y1,int y2,int x,int color, UCHAR *vbuffer, int lpitch);
-void Screen_Transitions(int effect, UCHAR *vbuffer, int lpitch);
 int Draw_Pixel(int x, int y,int color,UCHAR *video_buffer, int lpitch);
 
 // palette functions

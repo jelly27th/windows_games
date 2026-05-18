@@ -1884,12 +1884,11 @@ int Destroy_Bitmap(BITMAP_IMAGE_PTR image) {
 // this function draws the bitmap onto the destination memory surface
 // if transparent is 1 then color 0 (8bit) or 0.0.0 (16bit) will be transparent
 // note this function does NOT clip, so be carefull!!!
-int Draw_Bitmap(BITMAP_IMAGE_PTR source_bitmap,UCHAR *dest_buffer, int lpitch, int transparent)
-{
+int Draw_Bitmap(BITMAP_IMAGE_PTR source_bitmap,UCHAR *dest_buffer, int lpitch, int transparent) {
 
-// test if this bitmap is loaded
-if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
-   return(0);
+   // test if this bitmap is loaded
+   if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
+      return(0);
 
     UCHAR *dest_addr,   // starting address of bitmap in destination
           *source_addr; // starting adddress of bitmap data in source
@@ -1906,59 +1905,45 @@ if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
    source_addr = source_bitmap->buffer;
 
    // is this bitmap transparent
-   if (transparent)
-   {
-   // copy each line of bitmap into destination with transparency
-   for (index=0; index<source_bitmap->height; index++)
-       {
+   if (transparent) {
+      // copy each line of bitmap into destination with transparency
+      for (index=0; index<source_bitmap->height; index++) {
        // copy the memory
-       for (pixel_x=0; pixel_x<source_bitmap->width; pixel_x++)
-           {
+       for (pixel_x=0; pixel_x<source_bitmap->width; pixel_x++) {
            if ((pixel = source_addr[pixel_x])!=0)
                dest_addr[pixel_x] = pixel;
-
-           } // end if
+        }
 
        // advance all the pointers
        dest_addr   += lpitch;
        source_addr += source_bitmap->width;
-
-       } // end for index
-   } // end if
-   else
-      {
+       }
+   } else {
       // non-transparent version
       // copy each line of bitmap into destination
 
-      for (index=0; index < source_bitmap->height; index++)
-          {
+      for (index=0; index < source_bitmap->height; index++) {
           // copy the memory
           memcpy(dest_addr, source_addr, source_bitmap->width);
 
           // advance all the pointers
           dest_addr   += lpitch;
           source_addr += source_bitmap->width;
-
-          } // end for index
-
-       } // end else
+      }
+   }
 
    // return success
    return 1;
+} 
 
-} // end Draw_Bitmap
-
-///////////////////////////////////////////////////////////////
-
-int Draw_Bitmap16(BITMAP_IMAGE_PTR source_bitmap,UCHAR *dest_buffer, int lpitch, int transparent)
-{
 // this function draws the bitmap onto the destination memory surface
 // if transparent is 1 then color 0 (8bit) or 0.0.0 (16bit) will be transparent
 // note this function does NOT clip, so be carefull!!!
+int Draw_Bitmap16(BITMAP_IMAGE_PTR source_bitmap,UCHAR *dest_buffer, int lpitch, int transparent) {
 
-// test if this bitmap is loaded
-if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
-   return(0);
+   // test if this bitmap is loaded
+   if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
+      return(0);
 
    USHORT *dest_addr,   // starting address of bitmap in destination
           *source_addr; // starting adddress of bitmap data in source
@@ -1976,34 +1961,27 @@ if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
    source_addr = (USHORT *)source_bitmap->buffer;
 
    // is this bitmap transparent
-   if (transparent)
-   {
-   // copy each line of bitmap into destination with transparency
-   for (index=0; index<source_bitmap->height; index++)
-       {
-       // copy the memory
-       for (pixel_x=0; pixel_x<source_bitmap->width; pixel_x++)
-           {
-           if ((pixel = source_addr[pixel_x])!=0)
-               dest_addr[pixel_x] = pixel;
+   if (transparent) {
+      // copy each line of bitmap into destination with transparency
+      for (index=0; index<source_bitmap->height; index++) {
+         // copy the memory
+         for (pixel_x=0; pixel_x<source_bitmap->width; pixel_x++) {
+            if ((pixel = source_addr[pixel_x])!=0)
+                  dest_addr[pixel_x] = pixel;
+            }
 
-           } // end if
+         // advance all the pointers
+         dest_addr   += lpitch_2;
+         source_addr += source_bitmap->width;
 
-       // advance all the pointers
-       dest_addr   += lpitch_2;
-       source_addr += source_bitmap->width;
-
-       } // end for index
-   } // end if
-   else
-      {
+      }
+   } else {
       // non-transparent version
       // copy each line of bitmap into destination
 
       int source_bytes_per_line = source_bitmap->width*2;
 
-      for (index=0; index < source_bitmap->height; index++)
-          {
+      for (index=0; index < source_bitmap->height; index++) {
           // copy the memory
           memcpy(dest_addr, source_addr, source_bytes_per_line);
 
@@ -2011,1201 +1989,706 @@ if (!(source_bitmap->attr & BITMAP_ATTR_LOADED))
           dest_addr   += lpitch_2;
           source_addr += source_bitmap->width;
 
-          } // end for index
-
-      } // end else
+      }
+   }
 
    // return success
    return 1;
+}
 
-} // end Draw_Bitmap16
-
-///////////////////////////////////////////////////////////////////////////////
-
+// this function extracts a bitmap out of a bitmap file
 int Load_Image_Bitmap(BITMAP_IMAGE_PTR image,  // bitmap image to load with data
                       BITMAP_FILE_PTR bitmap,  // bitmap to scan image data from
                       int cx,int cy,   // cell or absolute pos. to scan image from
                       int mode)        // if 0 then cx,cy is cell position, else 
                                        // cx,cy are absolute coords
 {
-// this function extracts a bitmap out of a bitmap file
 
-// is this a valid bitmap
-if (!image)
-   return(0);
+   // is this a valid bitmap
+   if (!image)
+      return(0);
 
-UCHAR *source_ptr,   // working pointers
-      *dest_ptr;
+   UCHAR *source_ptr,   // working pointers
+         *dest_ptr;
 
-// test the mode of extraction, cell based or absolute
-if (mode==BITMAP_EXTRACT_MODE_CELL)
-   {
-   // re-compute x,y
-   cx = cx*(image->width+1) + 1;
-   cy = cy*(image->height+1) + 1;
-   } // end if
+   // test the mode of extraction, cell based or absolute
+   if (mode==BITMAP_EXTRACT_MODE_CELL) {
+      // re-compute x,y
+      cx = cx*(image->width+1) + 1;
+      cy = cy*(image->height+1) + 1;
+   }
 
-// extract bitmap data
-source_ptr = bitmap->buffer +
-      cy*bitmap->bitmapinfoheader.biWidth+cx;
+   // extract bitmap data
+   source_ptr = bitmap->buffer +
+         cy*bitmap->bitmapinfoheader.biWidth+cx;
 
-// assign a pointer to the bimap image
-dest_ptr = (UCHAR *)image->buffer;
+   // assign a pointer to the bimap image
+   dest_ptr = (UCHAR *)image->buffer;
 
-// iterate thru each scanline and copy bitmap
-for (int index_y=0; index_y<image->height; index_y++)
-    {
-    // copy next line of data to destination
-    memcpy(dest_ptr, source_ptr,image->width);
+   // iterate thru each scanline and copy bitmap
+   for (int index_y=0; index_y<image->height; index_y++) {
+      // copy next line of data to destination
+      memcpy(dest_ptr, source_ptr,image->width);
 
-    // advance pointers
-    dest_ptr   += image->width;
-    source_ptr += bitmap->bitmapinfoheader.biWidth;
-    } // end for index_y
+      // advance pointers
+      dest_ptr   += image->width;
+      source_ptr += bitmap->bitmapinfoheader.biWidth;
+   }
 
-// set state to loaded
-image->attr |= BITMAP_ATTR_LOADED;
+   // set state to loaded
+   image->attr |= BITMAP_ATTR_LOADED;
 
-// return success
-return 1;
+   // return success
+   return 1;
+}
 
-} // end Load_Image_Bitmap
-
-///////////////////////////////////////////////////////////
-
+// this function extracts a 16-bit bitmap out of a 16-bit bitmap file
 int Load_Image_Bitmap16(BITMAP_IMAGE_PTR image,  // bitmap image to load with data
                         BITMAP_FILE_PTR bitmap,  // bitmap to scan image data from
                         int cx,int cy,   // cell or absolute pos. to scan image from
                         int mode)        // if 0 then cx,cy is cell position, else 
                                        // cx,cy are absolute coords
 {
-// this function extracts a 16-bit bitmap out of a 16-bit bitmap file
 
-// is this a valid bitmap
-if (!image)
-   return(0);
+   // is this a valid bitmap
+   if (!image)
+      return(0);
 
-// must be a 16bit bitmap
-USHORT *source_ptr,   // working pointers
-       *dest_ptr;
+   // must be a 16bit bitmap
+   USHORT *source_ptr,   // working pointers
+         *dest_ptr;
 
-// test the mode of extraction, cell based or absolute
-if (mode==BITMAP_EXTRACT_MODE_CELL)
-   {
-   // re-compute x,y
-   cx = cx*(image->width+1) + 1;
-   cy = cy*(image->height+1) + 1;
-   } // end if
+   // test the mode of extraction, cell based or absolute
+   if (mode==BITMAP_EXTRACT_MODE_CELL) {
+      // re-compute x,y
+      cx = cx*(image->width+1) + 1;
+      cy = cy*(image->height+1) + 1;
+   }
 
-// extract bitmap data
-source_ptr = (USHORT *)bitmap->buffer + 
-             cy*bitmap->bitmapinfoheader.biWidth+cx;
+   // extract bitmap data
+   source_ptr = (USHORT *)bitmap->buffer + 
+               cy*bitmap->bitmapinfoheader.biWidth+cx;
 
-// assign a pointer to the bimap image
-dest_ptr = (USHORT *)image->buffer;
+   // assign a pointer to the bimap image
+   dest_ptr = (USHORT *)image->buffer;
 
-int bytes_per_line = image->width*2;
+   int bytes_per_line = image->width*2;
 
-// iterate thru each scanline and copy bitmap
-for (int index_y=0; index_y < image->height; index_y++)
-    {
-    // copy next line of data to destination
-    memcpy(dest_ptr, source_ptr,bytes_per_line);
+   // iterate thru each scanline and copy bitmap
+   for (int index_y=0; index_y < image->height; index_y++) {
+      // copy next line of data to destination
+      memcpy(dest_ptr, source_ptr,bytes_per_line);
 
-    // advance pointers
-    dest_ptr   += image->width;
-    source_ptr += bitmap->bitmapinfoheader.biWidth;
-    } // end for index_y
+      // advance pointers
+      dest_ptr   += image->width;
+      source_ptr += bitmap->bitmapinfoheader.biWidth;
+   }
 
-// set state to loaded
-image->attr |= BITMAP_ATTR_LOADED;
+   // set state to loaded
+   image->attr |= BITMAP_ATTR_LOADED;
 
-// return success
-return 1;
+   // return success
+   return 1;
 
-} // end Load_Image_Bitmap16
+}
 
-///////////////////////////////////////////////////////////
-
-int Scroll_Bitmap(BITMAP_IMAGE_PTR image, int dx, int dy)
-{
 // this function scrolls a bitmap
+int Scroll_Bitmap(BITMAP_IMAGE_PTR image, int dx, int dy) {
 
-BITMAP_IMAGE temp_image; // temp image buffer
+   BITMAP_IMAGE temp_image; // temp image buffer
 
-// are the parms valid 
-if (!image || (dx==0 && dy==0))
-   return(0);
+   // are the parms valid 
+   if (!image || (dx==0 && dy==0))
+      return(0);
 
+   // scroll on x-axis first
+   if (dx!=0) {
+      // step 1: normalize scrolling amount
+      dx %= image->width;
 
-// scroll on x-axis first
-if (dx!=0)
-{
-// step 1: normalize scrolling amount
-dx %= image->width;
+      // step 2: which way?
+      if (dx > 0) {
+         // scroll right
+         // create bitmap to hold region that is scrolled around
+         Create_Bitmap(&temp_image, 0, 0, dx, image->height, image->bpp);
 
-// step 2: which way?
-if (dx > 0)
-   {
-   // scroll right
-   // create bitmap to hold region that is scrolled around
-   Create_Bitmap(&temp_image, 0, 0, dx, image->height, image->bpp);
+         // copy region we are going to scroll and wrap around
+         Copy_Bitmap(&temp_image,0,0, 
+                     image, image->width-dx,0, 
+                     dx, image->height);
 
-   // copy region we are going to scroll and wrap around
-   Copy_Bitmap(&temp_image,0,0, 
-                image, image->width-dx,0, 
-                dx, image->height);
+         // set some pointers up
+         UCHAR *source_ptr = image->buffer;  // start of each line
+         int shift         = (image->bpp >> 3)*dx;
 
-   // set some pointers up
-   UCHAR *source_ptr = image->buffer;  // start of each line
-   int shift         = (image->bpp >> 3)*dx;
+         // now scroll image to right "scroll" pixels
+         for (int y=0; y < image->height; y++) {
+            // scroll the line over
+            memmove(source_ptr+shift, source_ptr, (image->width-dx)*(image->bpp >> 3));
+         
+            // advance to the next line
+            source_ptr+=((image->bpp >> 3)*image->width);
+         }
+         
+         // and now copy it back
+         Copy_Bitmap(image, 0,0, &temp_image,0,0, 
+                     dx, image->height);           
 
-   // now scroll image to right "scroll" pixels
-   for (int y=0; y < image->height; y++)
-       {
-       // scroll the line over
-       memmove(source_ptr+shift, source_ptr, (image->width-dx)*(image->bpp >> 3));
-    
-       // advance to the next line
-       source_ptr+=((image->bpp >> 3)*image->width);
-       } // end for
-   
-   // and now copy it back
-   Copy_Bitmap(image, 0,0, &temp_image,0,0, 
-               dx, image->height);           
+      } else {
+         // scroll left
+         dx = -dx; // invert sign
 
-   } // end if
-else
-   {
-   // scroll left
-   dx = -dx; // invert sign
+         // create bitmap to hold region that is scrolled around
+         Create_Bitmap(&temp_image, 0, 0, dx, image->height, image->bpp);
 
-   // create bitmap to hold region that is scrolled around
-   Create_Bitmap(&temp_image, 0, 0, dx, image->height, image->bpp);
+         // copy region we are going to scroll and wrap around
+         Copy_Bitmap(&temp_image,0,0, 
+                     image, 0,0, 
+                     dx, image->height);
 
-   // copy region we are going to scroll and wrap around
-   Copy_Bitmap(&temp_image,0,0, 
-                image, 0,0, 
-                dx, image->height);
+         // set some pointers up
+         UCHAR *source_ptr = image->buffer;  // start of each line
+         int shift         = (image->bpp >> 3)*dx;
 
-   // set some pointers up
-   UCHAR *source_ptr = image->buffer;  // start of each line
-   int shift         = (image->bpp >> 3)*dx;
+         // now scroll image to left "scroll" pixels
+         for (int y=0; y < image->height; y++) {
+            // scroll the line over
+            memmove(source_ptr, source_ptr+shift, (image->width-dx)*(image->bpp >> 3));
+         
+            // advance to the next line
+            source_ptr+=((image->bpp >> 3)*image->width);
+         }
+      
+         // and now copy it back
+         Copy_Bitmap(image, image->width-dx,0, &temp_image,0,0, 
+                     dx, image->height);           
 
-   // now scroll image to left "scroll" pixels
-   for (int y=0; y < image->height; y++)
-       {
-       // scroll the line over
-       memmove(source_ptr, source_ptr+shift, (image->width-dx)*(image->bpp >> 3));
-    
-       // advance to the next line
-       source_ptr+=((image->bpp >> 3)*image->width);
-       } // end for
-   
-   // and now copy it back
-   Copy_Bitmap(image, image->width-dx,0, &temp_image,0,0, 
-               dx, image->height);           
+      }
+   }
 
-   } // end else
-} // end scroll on x-axis
+   // return success
+   return 1;
 
+}
 
-// return success
-return 1;
-
-} // end Scroll_Bitmap
-
-///////////////////////////////////////////////////////////
-
+// this function copies a bitmap from one source to another
 int Copy_Bitmap(BITMAP_IMAGE_PTR dest_bitmap, int dest_x, int dest_y, 
                 BITMAP_IMAGE_PTR source_bitmap, int source_x, int source_y, 
                 int width, int height)
 {
-// this function copies a bitmap from one source to another
 
-// make sure the pointers are at least valid
-if (!dest_bitmap || !source_bitmap)
-   return(0);
+   // make sure the pointers are at least valid
+   if (!dest_bitmap || !source_bitmap)
+      return(0);
 
-// do some computations
-int bytes_per_pixel = (source_bitmap->bpp >> 3);
+   // do some computations
+   int bytes_per_pixel = (source_bitmap->bpp >> 3);
 
-// create some pointers
-UCHAR *source_ptr = source_bitmap->buffer + (source_x + source_y*source_bitmap->width)*bytes_per_pixel;
-UCHAR *dest_ptr   = dest_bitmap->buffer   + (dest_x   + dest_y  *dest_bitmap->width)  *bytes_per_pixel;
+   // create some pointers
+   UCHAR *source_ptr = source_bitmap->buffer + (source_x + source_y*source_bitmap->width)*bytes_per_pixel;
+   UCHAR *dest_ptr   = dest_bitmap->buffer   + (dest_x   + dest_y  *dest_bitmap->width)  *bytes_per_pixel;
 
-// now copying is easy :)
-for (int y = 0; y < height; y++)
-    {
-    // copy this line
-    memcpy(dest_ptr, source_ptr, bytes_per_pixel*width);
+   // now copying is easy :)
+   for (int y = 0; y < height; y++) {
+      // copy this line
+      memcpy(dest_ptr, source_ptr, bytes_per_pixel*width);
 
-    // advance the pointers
-    source_ptr+=(source_bitmap->width*bytes_per_pixel);
-    dest_ptr  +=(dest_bitmap->width*bytes_per_pixel);
-    } // end for
+      // advance the pointers
+      source_ptr+=(source_bitmap->width*bytes_per_pixel);
+      dest_ptr  +=(dest_bitmap->width*bytes_per_pixel);
+   }
 
-// return success
-return 1;
+   // return success
+   return 1;
 
-} // end Copy_Bitmap
+}
 
-///////////////////////////////////////////////////////////
-
-int Load_Bitmap_File(BITMAP_FILE_PTR bitmap, char *filename)
-{
 // this function opens a bitmap file and loads the data into bitmap
+int Load_Bitmap_File(BITMAP_FILE_PTR bitmap, char *filename) {
 
-int file_handle,  // the file handle
-    index;        // looping index
+   int file_handle,  // the file handle
+      index;        // looping index
 
-UCHAR   *temp_buffer = NULL; // used to convert 24 bit images to 16 bit
-OFSTRUCT file_data;          // the file data information
+   UCHAR   *temp_buffer = NULL; // used to convert 24 bit images to 16 bit
+   OFSTRUCT file_data;          // the file data information
 
-// open the file if it exists
-if ((file_handle = OpenFile(filename,&file_data,OF_READ))==-1)
-   return(0);
+   // open the file if it exists
+   if ((file_handle = OpenFile(filename,&file_data,OF_READ))==-1)
+      return(0);
 
-// now load the bitmap file header
-_lread(file_handle, &bitmap->bitmapfileheader,sizeof(BITMAPFILEHEADER));
+   // now load the bitmap file header
+   _lread(file_handle, &bitmap->bitmapfileheader,sizeof(BITMAPFILEHEADER));
 
-// test if this is a bitmap file
-if (bitmap->bitmapfileheader.bfType!=BITMAP_ID)
-   {
-   // close the file
-   _lclose(file_handle);
-
-   // return error
-   return(0);
-   } // end if
-
-// now we know this is a bitmap, so read in all the sections
-
-// first the bitmap infoheader
-
-// now load the bitmap file header
-_lread(file_handle, &bitmap->bitmapinfoheader,sizeof(BITMAPINFOHEADER));
-
-// now load the color palette if there is one
-if (bitmap->bitmapinfoheader.biBitCount == 8)
-   {
-   _lread(file_handle, &bitmap->palette,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
-
-   // now set all the flags in the palette correctly and fix the reversed 
-   // BGR RGBQUAD data format
-   for (index=0; index < MAX_COLORS_PALETTE; index++)
-       {
-       // reverse the red and green fields
-       int temp_color                = bitmap->palette[index].peRed;
-       bitmap->palette[index].peRed  = bitmap->palette[index].peBlue;
-       bitmap->palette[index].peBlue = temp_color;
-       
-       // always set the flags word to this
-       bitmap->palette[index].peFlags = PC_NOCOLLAPSE;
-       } // end for index
-
-    } // end if
-
-// finally the image data itself
-_lseek(file_handle,-(int)(bitmap->bitmapinfoheader.biSizeImage),SEEK_END);
-
-// now read in the image
-if (bitmap->bitmapinfoheader.biBitCount==8 || bitmap->bitmapinfoheader.biBitCount==16) 
-   {
-   // delete the last image if there was one
-   if (bitmap->buffer)
-       free(bitmap->buffer);
-
-   // allocate the memory for the image
-   if (!(bitmap->buffer = (UCHAR *)malloc(bitmap->bitmapinfoheader.biSizeImage)))
-      {
+   // test if this is a bitmap file
+   if (bitmap->bitmapfileheader.bfType!=BITMAP_ID) {
       // close the file
       _lclose(file_handle);
 
       // return error
       return(0);
-      } // end if
+   }
 
-   // now read it in
-   _lread(file_handle,bitmap->buffer,bitmap->bitmapinfoheader.biSizeImage);
+   // now we know this is a bitmap, so read in all the sections
 
-   } // end if
-else
-if (bitmap->bitmapinfoheader.biBitCount==24)
-   {
-   // allocate temporary buffer to load 24 bit image
-   if (!(temp_buffer = (UCHAR *)malloc(bitmap->bitmapinfoheader.biSizeImage)))
-      {
-      // close the file
-      _lclose(file_handle);
+   // first the bitmap infoheader
 
-      // return error
-      return(0);
-      } // end if
+   // now load the bitmap file header
+   _lread(file_handle, &bitmap->bitmapinfoheader,sizeof(BITMAPINFOHEADER));
+
+   // now load the color palette if there is one
+   if (bitmap->bitmapinfoheader.biBitCount == 8) {
+      _lread(file_handle, &bitmap->palette,MAX_COLORS_PALETTE*sizeof(PALETTEENTRY));
+
+      // now set all the flags in the palette correctly and fix the reversed 
+      // BGR RGBQUAD data format
+      for (index=0; index < MAX_COLORS_PALETTE; index++) {
+         // reverse the red and green fields
+         int temp_color                = bitmap->palette[index].peRed;
+         bitmap->palette[index].peRed  = bitmap->palette[index].peBlue;
+         bitmap->palette[index].peBlue = temp_color;
+         
+         // always set the flags word to this
+         bitmap->palette[index].peFlags = PC_NOCOLLAPSE;
+      }
+   }
+
+   // finally the image data itself
+   _lseek(file_handle,-(int)(bitmap->bitmapinfoheader.biSizeImage),SEEK_END);
+
+   // now read in the image
+   if (bitmap->bitmapinfoheader.biBitCount==8 || bitmap->bitmapinfoheader.biBitCount==16) {
+      // delete the last image if there was one
+      if (bitmap->buffer)
+         free(bitmap->buffer);
+
+      // allocate the memory for the image
+      if (!(bitmap->buffer = (UCHAR *)malloc(bitmap->bitmapinfoheader.biSizeImage))) {
+         // close the file
+         _lclose(file_handle);
+
+         // return error
+         return(0);
+      }
+
+      // now read it in
+      _lread(file_handle,bitmap->buffer,bitmap->bitmapinfoheader.biSizeImage);
+
+   } else if (bitmap->bitmapinfoheader.biBitCount==24) {
+      // allocate temporary buffer to load 24 bit image
+      if (!(temp_buffer = (UCHAR *)malloc(bitmap->bitmapinfoheader.biSizeImage))) {
+         // close the file
+         _lclose(file_handle);
+
+         // return error
+         return(0);
+      }
    
-   // allocate final 16 bit storage buffer
-   if (!(bitmap->buffer=(UCHAR *)malloc(2*bitmap->bitmapinfoheader.biWidth*bitmap->bitmapinfoheader.biHeight)))
-      {
-      // close the file
-      _lclose(file_handle);
+      // allocate final 16 bit storage buffer
+      if (!(bitmap->buffer=(UCHAR *)malloc(2*bitmap->bitmapinfoheader.biWidth*bitmap->bitmapinfoheader.biHeight))) {
+         // close the file
+         _lclose(file_handle);
+
+         // release working buffer
+         free(temp_buffer);
+
+         // return error
+         return(0);
+      }
+
+      // now read the file in
+      _lread(file_handle,temp_buffer,bitmap->bitmapinfoheader.biSizeImage);
+
+      // now convert each 24 bit RGB value into a 16 bit value
+      for (index=0; index < bitmap->bitmapinfoheader.biWidth*bitmap->bitmapinfoheader.biHeight; index++) {
+         // build up 16 bit color word
+         USHORT color;
+         
+         // build pixel based on format of directdraw surface
+         if (dd_pixel_format==DD_PIXEL_FORMAT555) {
+            // extract RGB components (in BGR order), note the scaling
+            UCHAR blue  = (temp_buffer[index*3 + 0] >> 3),
+                  green = (temp_buffer[index*3 + 1] >> 3),
+                  red   = (temp_buffer[index*3 + 2] >> 3); 
+            // use the 555 macro
+            color = _RGB16BIT555(red,green,blue);
+         } else if (dd_pixel_format==DD_PIXEL_FORMAT565) {
+            // extract RGB components (in BGR order), note the scaling
+            UCHAR blue  = (temp_buffer[index*3 + 0] >> 3),
+                  green = (temp_buffer[index*3 + 1] >> 2),
+                  red   = (temp_buffer[index*3 + 2] >> 3);
+
+            // use the 565 macro
+            color = _RGB16BIT565(red,green,blue);
+
+         }
+
+         // write color to buffer
+         ((USHORT *)bitmap->buffer)[index] = color;
+
+      }
+
+      // finally write out the correct number of bits
+      bitmap->bitmapinfoheader.biBitCount=16;
 
       // release working buffer
       free(temp_buffer);
 
-      // return error
+   } else {
+      // serious problem
       return(0);
-      } // end if
+   }
 
-   // now read the file in
-   _lread(file_handle,temp_buffer,bitmap->bitmapinfoheader.biSizeImage);
+   #if 0
+   // write the file info out 
+   printf("\nfilename:%s \nsize=%d \nwidth=%d \nheight=%d \nbitsperpixel=%d \ncolors=%d \nimpcolors=%d",
+         filename,
+         bitmap->bitmapinfoheader.biSizeImage,
+         bitmap->bitmapinfoheader.biWidth,
+         bitmap->bitmapinfoheader.biHeight,
+         bitmap->bitmapinfoheader.biBitCount,
+         bitmap->bitmapinfoheader.biClrUsed,
+         bitmap->bitmapinfoheader.biClrImportant);
+   #endif
 
-   // now convert each 24 bit RGB value into a 16 bit value
-   for (index=0; index < bitmap->bitmapinfoheader.biWidth*bitmap->bitmapinfoheader.biHeight; index++)
-       {
-       // build up 16 bit color word
-       USHORT color;
-       
-       // build pixel based on format of directdraw surface
-       if (dd_pixel_format==DD_PIXEL_FORMAT555)
-           {
-           // extract RGB components (in BGR order), note the scaling
-           UCHAR blue  = (temp_buffer[index*3 + 0] >> 3),
-                 green = (temp_buffer[index*3 + 1] >> 3),
-                 red   = (temp_buffer[index*3 + 2] >> 3); 
-           // use the 555 macro
-           color = _RGB16BIT555(red,green,blue);
-           } // end if 555
-       else
-       if (dd_pixel_format==DD_PIXEL_FORMAT565) 
-          {
-          // extract RGB components (in BGR order), note the scaling
-           UCHAR blue  = (temp_buffer[index*3 + 0] >> 3),
-                 green = (temp_buffer[index*3 + 1] >> 2),
-                 red   = (temp_buffer[index*3 + 2] >> 3);
+   // close the file
+   _lclose(file_handle);
 
-           // use the 565 macro
-           color = _RGB16BIT565(red,green,blue);
+   // flip the bitmap
+   Flip_Bitmap(bitmap->buffer, 
+               bitmap->bitmapinfoheader.biWidth*(bitmap->bitmapinfoheader.biBitCount/8), 
+               bitmap->bitmapinfoheader.biHeight);
 
-          } // end if 565
+   // return success
+   return 1;
 
-       // write color to buffer
-       ((USHORT *)bitmap->buffer)[index] = color;
+}
 
-       } // end for index
-
-   // finally write out the correct number of bits
-   bitmap->bitmapinfoheader.biBitCount=16;
-
-   // release working buffer
-   free(temp_buffer);
-
-   } // end if 24 bit
-else
-   {
-   // serious problem
-   return(0);
-
-   } // end else
-
-#if 0
-// write the file info out 
-printf("\nfilename:%s \nsize=%d \nwidth=%d \nheight=%d \nbitsperpixel=%d \ncolors=%d \nimpcolors=%d",
-        filename,
-        bitmap->bitmapinfoheader.biSizeImage,
-        bitmap->bitmapinfoheader.biWidth,
-        bitmap->bitmapinfoheader.biHeight,
-		bitmap->bitmapinfoheader.biBitCount,
-        bitmap->bitmapinfoheader.biClrUsed,
-        bitmap->bitmapinfoheader.biClrImportant);
-#endif
-
-// close the file
-_lclose(file_handle);
-
-// flip the bitmap
-Flip_Bitmap(bitmap->buffer, 
-            bitmap->bitmapinfoheader.biWidth*(bitmap->bitmapinfoheader.biBitCount/8), 
-            bitmap->bitmapinfoheader.biHeight);
-
-// return success
-return 1;
-
-} // end Load_Bitmap_File
-
-///////////////////////////////////////////////////////////
-
-int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap)
-{
 // this function releases all memory associated with "bitmap"
-if (bitmap->buffer)
-   {
-   // release memory
-   free(bitmap->buffer);
+int Unload_Bitmap_File(BITMAP_FILE_PTR bitmap) {
+   if (bitmap->buffer) {
+      // release memory
+      free(bitmap->buffer);
 
-   // reset pointer
-   bitmap->buffer = NULL;
+      // reset pointer
+      bitmap->buffer = NULL;
 
-   } // end if
+   }
+   // return success
+   return 1;
+}
 
-// return success
-return 1;
-
-} // end Unload_Bitmap_File
-
-///////////////////////////////////////////////////////////
-
-int Flip_Bitmap(UCHAR *image, int bytes_per_line, int height)
-{
 // this function is used to flip bottom-up .BMP images
+int Flip_Bitmap(UCHAR *image, int bytes_per_line, int height) {
 
-UCHAR *buffer; // used to perform the image processing
-int index;     // looping index
+   UCHAR *buffer; // used to perform the image processing
+   int index;     // looping index
 
-// allocate the temporary buffer
-if (!(buffer = (UCHAR *)malloc(bytes_per_line*height)))
-   return(0);
+   // allocate the temporary buffer
+   if (!(buffer = (UCHAR *)malloc(bytes_per_line*height)))
+      return(0);
 
-// copy image to work area
-memcpy(buffer,image,bytes_per_line*height);
+   // copy image to work area
+   memcpy(buffer,image,bytes_per_line*height);
 
-// flip vertically
-for (index=0; index < height; index++)
-    memcpy(&image[((height-1) - index)*bytes_per_line],
-           &buffer[index*bytes_per_line], bytes_per_line);
+   // flip vertically
+   for (index=0; index < height; index++)
+      memcpy(&image[((height-1) - index)*bytes_per_line],
+            &buffer[index*bytes_per_line], bytes_per_line);
 
-// release the memory
-free(buffer);
+   // release the memory
+   free(buffer);
 
-// return success
-return 1;
+   // return success
+   return 1;
 
-} // end Flip_Bitmap
+}
 
-///////////////////////////////////////////////////////////
+// // draw a horizontal line using the memset function
+// void HLine16(int x1,int x2,int y,int color, UCHAR *vbuffer, int lpitch) {
 
-void HLine16(int x1,int x2,int y,int color, UCHAR *vbuffer, int lpitch)
-{
-// draw a horizontal line using the memset function
+//    int temp; // used for temporary storage during endpoint swap
 
-int temp; // used for temporary storage during endpoint swap
+//    USHORT *vbuffer2 = (USHORT *)vbuffer; // short pointer to buffer
 
-USHORT *vbuffer2 = (USHORT *)vbuffer; // short pointer to buffer
+//    // convert pitch to words
+//    lpitch = lpitch >> 1;
 
-// convert pitch to words
-lpitch = lpitch >> 1;
+//    // perform trivial rejections
+//    if (y > max_clip_y || y < min_clip_y)
+//       return;
 
-// perform trivial rejections
-if (y > max_clip_y || y < min_clip_y)
-   return;
+//    // sort x1 and x2, so that x2 > x1
+//    if (x1>x2) {
+//       temp = x1;
+//       x1   = x2;
+//       x2   = temp;
+//    }
 
-// sort x1 and x2, so that x2 > x1
-if (x1>x2)
-   {
-   temp = x1;
-   x1   = x2;
-   x2   = temp;
-   } // end swap
+//    // perform trivial rejections
+//    if (x1 > max_clip_x || x2 < min_clip_x)
+//       return;
 
-// perform trivial rejections
-if (x1 > max_clip_x || x2 < min_clip_x)
-   return;
+//    // now clip
+//    x1 = ((x1 < min_clip_x) ? min_clip_x : x1);
+//    x2 = ((x2 > max_clip_x) ? max_clip_x : x2);
 
-// now clip
-x1 = ((x1 < min_clip_x) ? min_clip_x : x1);
-x2 = ((x2 > max_clip_x) ? max_clip_x : x2);
+//    // draw the row of pixels
+//    Mem_Set_WORD((vbuffer2+(y*lpitch)+x1), color,x2-x1+1);
+// }
 
-// draw the row of pixels
-Mem_Set_WORD((vbuffer2+(y*lpitch)+x1), color,x2-x1+1);
-
-} // end HLine16
-
-//////////////////////////////////////////////////////////////////////////////
-
+// draw a vertical line, note that a memset function can no longer be
+// used since the pixel addresses are no longer contiguous in memory
+// note that the end points of the line must be on the screen
 void VLine16(int y1,int y2,int x,int color,UCHAR *vbuffer, int lpitch)
 {
-// draw a vertical line, note that a memset function can no longer be
-// used since the pixel addresses are no longer contiguous in memory
-// note that the end points of the line must be on the screen
 
-USHORT *start_offset; // starting memory offset of line
+   USHORT *start_offset; // starting memory offset of line
 
-int index, // loop index
-    temp;  // used for temporary storage during swap
+   int index, // loop index
+      temp;  // used for temporary storage during swap
 
-// convert lpitch to number of words
-lpitch = lpitch >> 1;
+   // convert lpitch to number of words
+   lpitch = lpitch >> 1;
 
-// perform trivial rejections
-if (x > max_clip_x || x < min_clip_x)
-   return;
+   // perform trivial rejections
+   if (x > max_clip_x || x < min_clip_x)
+      return;
 
-// make sure y2 > y1
-if (y1>y2)
-   {
-   temp = y1;
-   y1   = y2;
-   y2   = temp;
-   } // end swap
+   // make sure y2 > y1
+   if (y1>y2) {
+      temp = y1;
+      y1   = y2;
+      y2   = temp;
+   }
 
-// perform trivial rejections
-if (y1 > max_clip_y || y2 < min_clip_y)
-   return;
+   // perform trivial rejections
+   if (y1 > max_clip_y || y2 < min_clip_y)
+      return;
 
-// now clip
-y1 = ((y1 < min_clip_y) ? min_clip_y : y1);
-y2 = ((y2 > max_clip_y) ? max_clip_y : y2);
+   // now clip
+   y1 = ((y1 < min_clip_y) ? min_clip_y : y1);
+   y2 = ((y2 > max_clip_y) ? max_clip_y : y2);
 
-// compute starting position
-start_offset = (USHORT *)vbuffer + (y1*lpitch) + x;
+   // compute starting position
+   start_offset = (USHORT *)vbuffer + (y1*lpitch) + x;
 
-// draw line one pixel at a time
-for (index=0; index<=y2-y1; index++)
-    {
-    // set the pixel
-    *start_offset = color;
+   // draw line one pixel at a time
+   for (index=0; index<=y2-y1; index++) {
+      // set the pixel
+      *start_offset = color;
 
-    // move downward to next line
-    start_offset+=lpitch;
+      // move downward to next line
+      start_offset+=lpitch;
+   }
+}
 
-    } // end for index
-
-} // end VLine16
-
-///////////////////////////////////////////////////////////
-
-void HLine(int x1,int x2,int y,int color, UCHAR *vbuffer, int lpitch)
-{
 // draw a horizontal line using the memset function
+void HLine(int x1,int x2,int y,int color, UCHAR *vbuffer, int lpitch) {
 
-int temp; // used for temporary storage during endpoint swap
+   int temp; // used for temporary storage during endpoint swap
 
-// perform trivial rejections
-if (y > max_clip_y || y < min_clip_y)
-   return;
+   // perform trivial rejections
+   if (y > max_clip_y || y < min_clip_y)
+      return;
 
-// sort x1 and x2, so that x2 > x1
-if (x1>x2)
-   {
-   temp = x1;
-   x1   = x2;
-   x2   = temp;
-   } // end swap
+   // sort x1 and x2, so that x2 > x1
+   if (x1>x2) {
+      temp = x1;
+      x1   = x2;
+      x2   = temp;
+   }
 
-// perform trivial rejections
-if (x1 > max_clip_x || x2 < min_clip_x)
-   return;
+   // perform trivial rejections
+   if (x1 > max_clip_x || x2 < min_clip_x)
+      return;
 
-// now clip
-x1 = ((x1 < min_clip_x) ? min_clip_x : x1);
-x2 = ((x2 > max_clip_x) ? max_clip_x : x2);
+   // now clip
+   x1 = ((x1 < min_clip_x) ? min_clip_x : x1);
+   x2 = ((x2 > max_clip_x) ? max_clip_x : x2);
 
-// draw the row of pixels
-memset((UCHAR *)(vbuffer+(y*lpitch)+x1),
-       (UCHAR)color,x2-x1+1);
+   // draw the row of pixels
+   memset((UCHAR *)(vbuffer+(y*lpitch)+x1),
+         (UCHAR)color,x2-x1+1);
 
-} // end HLine
+}
 
-//////////////////////////////////////////////////////////////////////////////
-
-void VLine(int y1,int y2,int x,int color,UCHAR *vbuffer, int lpitch)
-{
 // draw a vertical line, note that a memset function can no longer be
 // used since the pixel addresses are no longer contiguous in memory
 // note that the end points of the line must be on the screen
+void VLine(int y1,int y2,int x,int color,UCHAR *vbuffer, int lpitch) {
 
-UCHAR *start_offset; // starting memory offset of line
+   UCHAR *start_offset; // starting memory offset of line
 
-int index, // loop index
-    temp;  // used for temporary storage during swap
+   int index, // loop index
+      temp;  // used for temporary storage during swap
 
 
-// perform trivial rejections
-if (x > max_clip_x || x < min_clip_x)
-   return;
+   // perform trivial rejections
+   if (x > max_clip_x || x < min_clip_x)
+      return;
 
-// make sure y2 > y1
-if (y1>y2)
-   {
-   temp = y1;
-   y1   = y2;
-   y2   = temp;
-   } // end swap
+   // make sure y2 > y1
+   if (y1>y2) {
+      temp = y1;
+      y1   = y2;
+      y2   = temp;
+   }
 
-// perform trivial rejections
-if (y1 > max_clip_y || y2 < min_clip_y)
-   return;
+   // perform trivial rejections
+   if (y1 > max_clip_y || y2 < min_clip_y)
+      return;
 
-// now clip
-y1 = ((y1 < min_clip_y) ? min_clip_y : y1);
-y2 = ((y2 > max_clip_y) ? max_clip_y : y2);
+   // now clip
+   y1 = ((y1 < min_clip_y) ? min_clip_y : y1);
+   y2 = ((y2 > max_clip_y) ? max_clip_y : y2);
 
-// compute starting position
-start_offset = vbuffer + (y1*lpitch) + x;
+   // compute starting position
+   start_offset = vbuffer + (y1*lpitch) + x;
 
-// draw line one pixel at a time
-for (index=0; index<=y2-y1; index++)
-    {
-    // set the pixel
-    *start_offset = (UCHAR)color;
+   // draw line one pixel at a time
+   for (index=0; index<=y2-y1; index++) {
+      // set the pixel
+      *start_offset = (UCHAR)color;
 
-    // move downward to next line
-    start_offset+=lpitch;
-
-    } // end for index
-
-} // end VLine
-
-///////////////////////////////////////////////////////////
-
-void Screen_Transitions(int effect, UCHAR *vbuffer, int lpitch)
-{
-// this function can be called to perform a myraid of screen transitions
-// to the destination buffer, make sure to save and restore the palette
-// when performing color transitions in 8-bit modes
-
-int pal_reg;         // used as loop counter
-int index;           // used as loop counter
-int red,green,blue;           // used in fad algorithm
-
-PALETTEENTRY color;              // temporary color
-PALETTEENTRY work_palette[MAX_COLORS_PALETTE];  // used as a working palette
-PALETTEENTRY work_color;         // used in color algorithms
-
-// test which screen effect is being selected
-switch(effect)
-      {
-      case SCREEN_DARKNESS:
-           {
-           // fade to black
-
-           for (index=0; index<80; index++)
-               {
-               // get the palette 
-               Save_Palette(work_palette);
-
-               // process each color
-               for (pal_reg=1; pal_reg<MAX_COLORS_PALETTE; pal_reg++)
-                   {
-                   // get the entry data
-                   color = work_palette[pal_reg];
-
-                   // test if this color register is already black
-                   if (color.peRed > 4) color.peRed-=3;
-                   else
-                      color.peRed = 0;
-
-                   if (color.peGreen > 4) color.peGreen-=3;
-                   else
-                      color.peGreen = 0;
-
-                   if (color.peBlue  > 4) color.peBlue-=3;
-                   else
-                      color.peBlue = 0;
-
-                   // set the color to a diminished intensity
-                   work_palette[pal_reg] = color;
-
-                   } // end for pal_reg
-
-               // write the palette back out
-               Set_Palette(work_palette);
-
-               // wait a bit
-               
-               Start_Clock(); Wait_Clock(12);
-               
-               } // end for index
-
-           } break;
-
-      case SCREEN_WHITENESS:
-           {
-           // fade to white
-           for (index=0; index<64; index++)
-               {
-               // get the palette 
-               Save_Palette(work_palette);
-
-               // loop thru all palette registers
-               for (pal_reg=0; pal_reg < MAX_COLORS_PALETTE; pal_reg++)
-                   {
-                   // get the entry data
-                   color = work_palette[pal_reg];
-
-                   // make 32 bit copy of color
-                   red   = color.peRed;
-                   green = color.peGreen;
-                   blue  = color.peBlue; 
-
-                   if ((red+=4) >=255)
-                      red=255;
-
-                   if ((green+=4) >=255)
-                      green=255;
-
-                   if ((blue+=4) >=255)
-                      blue=255;
-                          
-                   // store colors back
-                   color.peRed   = red;
-                   color.peGreen = green;
-                   color.peBlue  = blue;
-
-                   // set the color to a diminished intensity
-                   work_palette[pal_reg] = color;
-                   
-                   } // end for pal_reg
-
-               // write the palette back out
-               Set_Palette(work_palette);
-
-               // wait a bit
-               
-               Start_Clock(); Wait_Clock(12);
-
-               } // end for index
-
-           } break;
-
-      case SCREEN_REDNESS:
-           {
-           // fade to red
-
-           for (index=0; index<64; index++)
-               {
-               // get the palette 
-               Save_Palette(work_palette);
-               
-               // loop thru all palette registers
-               for (pal_reg=0; pal_reg < MAX_COLORS_PALETTE; pal_reg++)
-                   {
-                   // get the entry data
-                   color = work_palette[pal_reg];
-
-                   // make 32 bit copy of color
-                   red   = color.peRed;
-                   green = color.peGreen;
-                   blue  = color.peBlue; 
-
-                   if ((red+=6) >=255)
-                      red=255; 
-
-                   if ((green-=4) < 0)
-                      green=0;
-
-                   if ((blue-=4) < 0)
-                      blue=0;
-                          
-                   // store colors back
-                   color.peRed   = red;
-                   color.peGreen = green;
-                   color.peBlue  = blue;
-                  
-                   // set the color to a diminished intensity
-                   work_palette[pal_reg] = color;
-
-                   } // end for pal_reg
-
-               // write the palette back out
-               Set_Palette(work_palette);
-
-               // wait a bit
-               
-               Start_Clock(); Wait_Clock(12);
-
-               } // end for index
-
-           } break;
-
-      case SCREEN_BLUENESS:
-           {
-           // fade to blue
-
-           for (index=0; index<64; index++)
-               {
-               // get the palette 
-               Save_Palette(work_palette);
-               
-               // loop thru all palette registers
-               for (pal_reg=0; pal_reg < MAX_COLORS_PALETTE; pal_reg++)
-                   {
-                   // get the entry data
-                   color = work_palette[pal_reg];
-
-                   // make 32 bit copy of color
-                   red   = color.peRed;
-                   green = color.peGreen;
-                   blue  = color.peBlue; 
-
-                   if ((red-=4) < 0)
-                      red=0;
-
-                   if ((green-=4) < 0)
-                      green=0;
-
-                   if ((blue+=6) >=255)
-                      blue=255;
-                          
-                   // store colors back
-                   color.peRed   = red;
-                   color.peGreen = green;
-                   color.peBlue  = blue;
-                  
-                   // set the color to a diminished intensity
-                   work_palette[pal_reg] = color;
-
-                   } // end for pal_reg
-
-               // write the palette back out
-               Set_Palette(work_palette);
-
-               // wait a bit
-               
-               Start_Clock(); Wait_Clock(12);
-
-               } // end for index
-
-           } break;
-
-      case SCREEN_GREENNESS:
-           {
-           // fade to green
-           for (index=0; index<64; index++)
-               {
-               // get the palette 
-               Save_Palette(work_palette);
-
-               // loop thru all palette registers
-               for (pal_reg=0; pal_reg < MAX_COLORS_PALETTE; pal_reg++)
-                   {
-                   // get the entry data
-                   color = work_palette[pal_reg];                  
-
-                   // make 32 bit copy of color
-                   red   = color.peRed;
-                   green = color.peGreen;
-                   blue  = color.peBlue; 
-
-                   if ((red-=4) < 0)
-                      red=0;
-
-                   if ((green+=6) >=255)
-                      green=255;
-
-                   if ((blue-=4) < 0)
-                      blue=0;
-                          
-                   // store colors back
-                   color.peRed   = red;
-                   color.peGreen = green;
-                   color.peBlue  = blue;
-
-                   // set the color to a diminished intensity
-                   work_palette[pal_reg] = color; 
-
-                   } // end for pal_reg
-
-               // write the palette back out
-               Set_Palette(work_palette);
-
-               // wait a bit
-               
-               Start_Clock(); Wait_Clock(12);
-
-
-               } // end for index
-
-           } break;
-
-      case SCREEN_SWIPE_X:
-           {
-           // do a screen wipe from right to left, left to right
-           for (index=0; index < (screen_width/2); index+=2)
-               {
-               // use this as a 1/70th of second time delay
-               
-               Start_Clock(); Wait_Clock(12);
-
-               // test screen depth
-               if (screen_bpp==8)
-               {    
-               // draw two vertical lines at opposite ends of the screen
-               VLine(0,(screen_height-1),(screen_width-1)-index,0,vbuffer,lpitch);
-               VLine(0,(screen_height-1),index,0,vbuffer,lpitch);
-               VLine(0,(screen_height-1),(screen_width-1)-(index+1),0,vbuffer,lpitch);
-               VLine(0,(screen_height-1),index+1,0,vbuffer,lpitch);
-               } // end if 8-bit mode
-               else
-               if (screen_bpp==16)
-               {    
-               // 16-bit mode draw two vertical lines at opposite ends of the screen
-               VLine16(0,(screen_height-1),(screen_width-1)-index,0,vbuffer,lpitch);
-               VLine16(0,(screen_height-1),index,0,vbuffer,lpitch);
-               VLine16(0,(screen_height-1),(screen_width-1)-(index+1),0,vbuffer,lpitch);
-               VLine16(0,(screen_height-1),index+1,0,vbuffer,lpitch);
-               } // end if 16-bit mode
-
-
-               } // end for index
-
-           } break;
-
-      case SCREEN_SWIPE_Y:
-           {
-           // do a screen wipe from top to bottom, bottom to top
-           for (index=0; index < (screen_height/2); index+=2)
-               {
-               // use this as a 1/70th of second time delay
-               
-               Start_Clock(); Wait_Clock(12);
-
-               // test screen depth             
-               if (screen_bpp==8)
-               {
-               // draw two horizontal lines at opposite ends of the screen
-               HLine(0,(screen_width-1),(screen_height-1)-index,0,vbuffer,lpitch);
-               HLine(0,(screen_width-1),index,0,vbuffer,lpitch);
-               HLine(0,(screen_width-1),(screen_height-1)-(index+1),0,vbuffer,lpitch);
-               HLine(0,(screen_width-1),index+1,0,vbuffer,lpitch);
-               } // end if 8-bit mode
-               else 
-               if (screen_bpp==16)
-               {
-               // draw two horizontal lines at opposite ends of the screen
-               HLine16(0,(screen_width-1),(screen_height-1)-index,0,vbuffer,lpitch);
-               HLine16(0,(screen_width-1),index,0,vbuffer,lpitch);
-               HLine16(0,(screen_width-1),(screen_height-1)-(index+1),0,vbuffer,lpitch);
-               HLine16(0,(screen_width-1),index+1,0,vbuffer,lpitch);
-               } // end if 16-bit mode
-
-               } // end for index
-
-
-            } break;
-
-      case SCREEN_SCRUNCH:
-           {
-           // do a screen wipe from top to bottom, bottom to top
-           for (index=0; index < (screen_width/2); index+=2)
-               {
-               // use this as a 1/70th of second time delay
-               
-               Start_Clock(); Wait_Clock(12);
-
-               // test screen depth             
-               if (screen_bpp==8)
-               { 
-               // draw two horizontal lines at opposite ends of the screen
-               HLine(0,(screen_width-1),(screen_height-1)-index%(screen_height/2),0,vbuffer,lpitch);
-               HLine(0,(screen_width-1),index%(screen_height/2),0,vbuffer,lpitch);
-               HLine(0,(screen_width-1),(screen_height-1)-(index%(screen_height/2)+1),0,vbuffer,lpitch);
-               HLine(0,(screen_width-1),index%(screen_height/2)+1,0,vbuffer,lpitch);
-
-               // draw two vertical lines at opposite ends of the screen
-               VLine(0,(screen_height-1),(screen_width-1)-index,0,vbuffer,lpitch);
-               VLine(0,(screen_height-1),index,0,vbuffer,lpitch);
-               VLine(0,(screen_height-1),(screen_width-1)-(index+1),0,vbuffer,lpitch);
-               VLine(0,(screen_height-1),index+1,0,vbuffer,lpitch);
-               } // end if 8-bit mode
-               else
-               // test screen depth             
-               if (screen_bpp==16)
-               { 
-               // draw two horizontal lines at opposite ends of the screen
-               HLine16(0,(screen_width-1),(screen_height-1)-index%(screen_height/2),0,vbuffer,lpitch);
-               HLine16(0,(screen_width-1),index%(screen_height/2),0,vbuffer,lpitch);
-               HLine16(0,(screen_width-1),(screen_height-1)-(index%(screen_height/2)+1),0,vbuffer,lpitch);
-               HLine16(0,(screen_width-1),index%(screen_height/2)+1,0,vbuffer,lpitch);
-
-               // draw two vertical lines at opposite ends of the screen
-               VLine16(0,(screen_height-1),(screen_width-1)-index,0,vbuffer,lpitch);
-               VLine16(0,(screen_height-1),index,0,vbuffer,lpitch);
-               VLine16(0,(screen_height-1),(screen_width-1)-(index+1),0,vbuffer,lpitch);
-               VLine16(0,(screen_height-1),index+1,0,vbuffer,lpitch);
-               } // end if 8-bit mode
-
-               } // end for index
-
-           } break;
-
-
-      case SCREEN_DISOLVE:
-           {
-           // disolve the screen by plotting zillions of little black dots
-
-           if (screen_bpp==8)
-               for (index=0; index<=screen_width*screen_height*4; index++)
-                   Draw_Pixel(rand()%screen_width,rand()%screen_height,0,vbuffer,lpitch);
-           else
-           if (screen_bpp==16)
-               for (index=0; index<=screen_width*screen_height*4; index++)
-                   Draw_Pixel16(rand()%screen_width,rand()%screen_height,0,vbuffer,lpitch);
-
-           } break;
-
-       default:break;
-
-      } // end switch
-
-} // end Screen_Transitions
-
-//////////////////////////////////////////////////////////////////////////////
+      // move downward to next line
+      start_offset+=lpitch;
+   }
+}
 
 int Collision_Test(int x1, int y1, int w1, int h1, 
-                   int x2, int y2, int w2, int h2) 
-{
-// this function tests if the two rects overlap
+                   int x2, int y2, int w2, int h2) {
+   // this function tests if the two rects overlap
 
-// get the radi of each rect
-int width1  = (w1>>1) - (w1>>3);
-int height1 = (h1>>1) - (h1>>3);
+   // get the radi of each rect
+   int width1  = (w1>>1) - (w1>>3);
+   int height1 = (h1>>1) - (h1>>3);
 
-int width2  = (w2>>1) - (w2>>3);
-int height2 = (h2>>1) - (h2>>3);
+   int width2  = (w2>>1) - (w2>>3);
+   int height2 = (h2>>1) - (h2>>3);
 
-// compute center of each rect
-int cx1 = x1 + width1;
-int cy1 = y1 + height1;
+   // compute center of each rect
+   int cx1 = x1 + width1;
+   int cy1 = y1 + height1;
 
-int cx2 = x2 + width2;
-int cy2 = y2 + height2;
+   int cx2 = x2 + width2;
+   int cy2 = y2 + height2;
 
-// compute deltas
-int dx = abs(cx2 - cx1);
-int dy = abs(cy2 - cy1);
+   // compute deltas
+   int dx = abs(cx2 - cx1);
+   int dy = abs(cy2 - cy1);
 
-// test if rects overlap
-if (dx < (width1+width2) && dy < (height1+height2))
-   return 1;
-else
-// else no collision
-return(0);
+   // test if rects overlap
+   if (dx < (width1+width2) && dy < (height1+height2))
+      return 1;
+   else
+   // else no collision
+   return(0);
 
-} // end Collision_Test
+}
 
-///////////////////////////////////////////////////////////
-
+// this function implements a crude collision technique
+// based on scanning for a range of colors within a rectangle
 int Color_Scan(int x1, int y1, int x2, int y2, 
                UCHAR scan_start, UCHAR scan_end,
                UCHAR *scan_buffer, int scan_lpitch)
 {
-// this function implements a crude collision technique
-// based on scanning for a range of colors within a rectangle
+   // clip rectangle
 
-// clip rectangle
+   // x coords first    
+   if (x1 >= screen_width)
+      x1=screen_width-1;
+   else if (x1 < 0)
+      x1=0;
 
-// x coords first    
-if (x1 >= screen_width)
-   x1=screen_width-1;
-else
-if (x1 < 0)
-   x1=0;
+   if (x2 >= screen_width)
+      x2=screen_width-1;
+   else if (x2 < 0)
+      x2=0;
 
-if (x2 >= screen_width)
-   x2=screen_width-1;
-else
-if (x2 < 0)
-   x2=0;
+   // now y-coords
+   if (y1 >= screen_height)
+      y1=screen_height-1;
+   else if (y1 < 0)
+      y1=0;
 
-// now y-coords
-if (y1 >= screen_height)
-   y1=screen_height-1;
-else
-if (y1 < 0)
-   y1=0;
+   if (y2 >= screen_height)
+      y2=screen_height-1;
+   else if (y2 < 0)
+      y2=0;
 
-if (y2 >= screen_height)
-   y2=screen_height-1;
-else
-if (y2 < 0)
-   y2=0;
+   // scan the region
+   scan_buffer +=y1*scan_lpitch;
 
-// scan the region
-scan_buffer +=y1*scan_lpitch;
+   for (int scan_y=y1; scan_y<=y2; scan_y++) {
+      for (int scan_x=x1; scan_x<=x2; scan_x++) {
+         if (scan_buffer[scan_x] >= scan_start && scan_buffer[scan_x] <= scan_end )
+               return 1;
+      }
+      // move down a line
+      scan_buffer+=scan_lpitch;
+   }
 
-for (int scan_y=y1; scan_y<=y2; scan_y++)
-    {
-    for (int scan_x=x1; scan_x<=x2; scan_x++)
-        {
-        if (scan_buffer[scan_x] >= scan_start && scan_buffer[scan_x] <= scan_end )
-            return 1;
-        } // end for x
+   // return failure
+   return(0);
 
-    // move down a line
-    scan_buffer+=scan_lpitch;
+}
 
-    } // end for y
-
-// return failure
-return(0);
-
-} // end Color_Scan
-
-////////////////////////////////////////////////////////////////
-
-int Color_Scan16(int x1, int y1, int x2, int y2, 
-               USHORT scan_start, USHORT scan_end,
-               UCHAR *scan_buffer, int scan_lpitch)
-{
 // this function implements a crude collision technique
 // based on scanning for a range of colors within a rectangle
 // this is the 16-bit version, thus the interpretation of scan_start
 // and end are different, they are they EXACT RGB values you are looking
 // for, thus you can test for 2 values at most, else make them equal to
 // test for one value
-USHORT *scan_buffer2 = (USHORT *)scan_buffer;
+int Color_Scan16(int x1, int y1, int x2, int y2, 
+               USHORT scan_start, USHORT scan_end,
+               UCHAR *scan_buffer, int scan_lpitch)
+{
 
-// convert number of bytes per line to number of 16-bit shorts
-scan_lpitch = (scan_lpitch >> 1);
+   USHORT *scan_buffer2 = (USHORT *)scan_buffer;
 
-// clip rectangle
+   // convert number of bytes per line to number of 16-bit shorts
+   scan_lpitch = (scan_lpitch >> 1);
 
-// x coords first    
-if (x1 >= screen_width)
-   x1=screen_width-1;
-else
-if (x1 < 0)
-   x1=0;
+   // clip rectangle
 
-if (x2 >= screen_width)
-   x2=screen_width-1;
-else
-if (x2 < 0)
-   x2=0;
+   // x coords first    
+   if (x1 >= screen_width)
+      x1=screen_width-1;
+   else if (x1 < 0)
+      x1=0;
 
-// now y-coords
-if (y1 >= screen_height)
-   y1=screen_height-1;
-else
-if (y1 < 0)
-   y1=0;
+   if (x2 >= screen_width)
+      x2=screen_width-1;
+   else if (x2 < 0)
+      x2=0;
 
-if (y2 >= screen_height)
-   y2=screen_height-1;
-else
-if (y2 < 0)
-   y2=0;
+   // now y-coords
+   if (y1 >= screen_height)
+      y1=screen_height-1;
+   else if (y1 < 0)
+      y1=0;
 
-// scan the region
-scan_buffer2 +=y1*scan_lpitch;
+   if (y2 >= screen_height)
+      y2=screen_height-1;
+   else if (y2 < 0)
+      y2=0;
 
-for (int scan_y=y1; scan_y<=y2; scan_y++)
-    {
-    for (int scan_x=x1; scan_x<=x2; scan_x++)
-        {
-        if (scan_buffer2[scan_x] == scan_start || scan_buffer2[scan_x] == scan_end )
-            return 1;
-        } // end for x
+   // scan the region
+   scan_buffer2 +=y1*scan_lpitch;
 
-    // move down a line
-    scan_buffer2+=scan_lpitch;
+   for (int scan_y=y1; scan_y<=y2; scan_y++) {
+      for (int scan_x=x1; scan_x<=x2; scan_x++) {
+         if (scan_buffer2[scan_x] == scan_start || scan_buffer2[scan_x] == scan_end )
+               return 1;
+      }
+      // move down a line
+      scan_buffer2+=scan_lpitch;
+   }
 
-    } // end for y
+   // return failure
+   return(0);
 
-// return failure
-return(0);
-
-} // end Color_Scan16
+}
 
 /* extracts a bitmap out of a bitmap file */
 int Scan_Image_Bitmap(BITMAP_FILE_PTR bitmap,     // bitmap file to scan image data from
